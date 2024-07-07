@@ -22,15 +22,10 @@ type TicketsConfirmationRequest struct {
 func main() {
 	log.Init(logrus.InfoLevel)
 
-	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	receiptsClient := NewReceiptsClient(clients)
-	spreadsheetsClient := NewSpreadsheetsClient(clients)
-
 	e := commonHTTP.NewEcho()
+
+	w := NewWorker()
+	go w.Run()
 
 	e.POST("/tickets-confirmation", func(c echo.Context) error {
 		var request TicketsConfirmationRequest
@@ -40,15 +35,16 @@ func main() {
 		}
 
 		for _, ticket := range request.Tickets {
-			err = receiptsClient.IssueReceipt(c.Request().Context(), ticket)
-			if err != nil {
-				return err
-			}
-
-			err = spreadsheetsClient.AppendRow(c.Request().Context(), "tickets-to-print", []string{ticket})
-			if err != nil {
-				return err
-			}
+			w.Send(
+				Message{
+					Task:     TaskIssueReceipt,
+					TicketID: ticket,
+				},
+				Message{
+					Task:     TaskAppendToTracker,
+					TicketID: ticket,
+				},
+			)
 		}
 
 		return c.NoContent(http.StatusOK)
@@ -56,9 +52,66 @@ func main() {
 
 	logrus.Info("Server starting...")
 
-	err = e.Start(":8080")
+	err := e.Start(":8080")
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
+	}
+}
+
+type Task int
+
+const (
+	TaskIssueReceipt Task = iota
+	TaskAppendToTracker
+)
+
+type Message struct {
+	Task     Task
+	TicketID string
+}
+
+type Worker struct {
+	queue chan Message
+}
+
+func NewWorker() *Worker {
+	return &Worker{
+		queue: make(chan Message, 100),
+	}
+}
+
+func (w *Worker) Send(msgs ...Message) {
+	for _, msg := range msgs {
+		w.queue <- msg
+	}
+}
+
+func (w *Worker) Run() {
+	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), nil)
+	if err != nil {
+		panic(err)
+	}
+
+	receiptsClient := NewReceiptsClient(clients)
+	spreadsheetsClient := NewSpreadsheetsClient(clients)
+
+	ctx := context.Background()
+
+	for msg := range w.queue {
+		switch msg.Task {
+		case TaskIssueReceipt:
+			err = receiptsClient.IssueReceipt(ctx, msg.TicketID)
+			if err != nil {
+				logrus.WithError(err).Errorf("failed to issue the receipt")
+				w.Send(msg)
+			}
+		case TaskAppendToTracker:
+			err = spreadsheetsClient.AppendRow(ctx, "tickets-to-print", []string{msg.TicketID})
+			if err != nil {
+				logrus.WithError(err).Errorf("failed to append to tracker")
+				w.Send(msg)
+			}
+		}
 	}
 }
 
