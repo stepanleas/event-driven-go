@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/receipts"
@@ -17,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type TicketsConfirmationRequest struct {
@@ -106,17 +108,33 @@ func main() {
 		},
 	)
 
-	go func() {
-		err = router.Run(context.Background())
-		if err != nil {
-			panic(err)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	errgrp, ctx := errgroup.WithContext(ctx)
+
+	errgrp.Go(func() error {
+		return router.Run(ctx)
+	})
+
+	errgrp.Go(func() error {
+		// we don't want to start HTTP server before Watermill router (so service won't be healthy before it's ready)
+		<-router.Running()
+
+		err := e.Start(":8080")
+
+		if err != nil && err != http.ErrServerClosed {
+			return err
 		}
-	}()
 
-	logrus.Info("Server starting...")
+		return nil
+	})
 
-	err = e.Start(":8080")
-	if err != nil && err != http.ErrServerClosed {
+	errgrp.Go(func() error {
+		<-ctx.Done()
+		return e.Shutdown(context.Background())
+	})
+
+	if err := errgrp.Wait(); err != nil {
 		panic(err)
 	}
 }
