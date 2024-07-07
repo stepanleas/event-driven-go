@@ -83,39 +83,33 @@ func main() {
 		return c.NoContent(http.StatusOK)
 	})
 
+	router, err := message.NewRouter(message.RouterConfig{}, logger)
+	if err != nil {
+		panic(err)
+	}
+
+	router.AddNoPublisherHandler(
+		"issue_receipt_handler",
+		"issue-receipt",
+		issueReceiptSub,
+		func(msg *message.Message) error {
+			return receiptsClient.IssueReceipt(msg.Context(), string(msg.Payload))
+		},
+	)
+
+	router.AddNoPublisherHandler(
+		"append_to_tracker_handler",
+		"append-to-tracker",
+		appendToTrackerSub,
+		func(msg *message.Message) error {
+			return spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{string(msg.Payload)})
+		},
+	)
+
 	go func() {
-		messages, err := issueReceiptSub.Subscribe(context.Background(), "issue-receipt")
+		err = router.Run(context.Background())
 		if err != nil {
 			panic(err)
-		}
-
-		for msg := range messages {
-			ticketId := string(msg.Payload)
-			err = receiptsClient.IssueReceipt(msg.Context(), ticketId)
-			if err != nil {
-				logrus.WithError(err).Error("failed to issue the receipt")
-				msg.Nack()
-			} else {
-				msg.Ack()
-			}
-		}
-	}()
-
-	go func() {
-		messages, err := appendToTrackerSub.Subscribe(context.Background(), "append-to-tracker")
-		if err != nil {
-			panic(err)
-		}
-
-		for msg := range messages {
-			ticketId := string(msg.Payload)
-			err = spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{ticketId})
-			if err != nil {
-				logrus.WithError(err).Error("failed to append to tracker")
-				msg.Nack()
-			} else {
-				msg.Ack()
-			}
 		}
 	}()
 
