@@ -65,6 +65,10 @@ func main() {
 		panic(err)
 	}
 
+	e.GET("/health", func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})
+
 	e.POST("/tickets-confirmation", func(c echo.Context) error {
 		var request TicketsConfirmationRequest
 		err := c.Bind(&request)
