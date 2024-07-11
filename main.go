@@ -49,7 +49,7 @@ type EventHeader struct {
 	PublishedAt string `json:"published_at"`
 }
 
-func NewEventHeader(eventName string) EventHeader {
+func NewEventHeader() EventHeader {
 	return EventHeader{
 		ID:          watermill.NewUUID(),
 		PublishedAt: time.Now().Format(time.RFC3339),
@@ -57,6 +57,13 @@ func NewEventHeader(eventName string) EventHeader {
 }
 
 type TicketBookingConfirmed struct {
+	Header        EventHeader `json:"header"`
+	TicketID      string      `json:"ticket_id"`
+	CustomerEmail string      `json:"customer_email"`
+	Price         Money       `json:"price"`
+}
+
+type TicketBookingCanceled struct {
 	Header        EventHeader `json:"header"`
 	TicketID      string      `json:"ticket_id"`
 	CustomerEmail string      `json:"customer_email"`
@@ -90,14 +97,24 @@ func main() {
 	}
 
 	issueReceiptSub, err := redisstream.NewSubscriber(redisstream.SubscriberConfig{
-		Client: rdb,
+		Client:        rdb,
+		ConsumerGroup: "issue-receipt",
 	}, logger)
 	if err != nil {
 		panic(err)
 	}
 
 	appendToTrackerSub, err := redisstream.NewSubscriber(redisstream.SubscriberConfig{
-		Client: rdb,
+		Client:        rdb,
+		ConsumerGroup: "append-to-tracker",
+	}, logger)
+	if err != nil {
+		panic(err)
+	}
+
+	cancelTicketSub, err := redisstream.NewSubscriber(redisstream.SubscriberConfig{
+		Client:        rdb,
+		ConsumerGroup: "cancel-ticket",
 	}, logger)
 	if err != nil {
 		panic(err)
@@ -115,26 +132,42 @@ func main() {
 		}
 
 		for _, ticket := range request.Tickets {
-			if ticket.Status != "confirmed" {
-				continue
+			if ticket.Status == "confirmed" {
+				event := TicketBookingConfirmed{
+					Header:        NewEventHeader(),
+					TicketID:      ticket.TicketID,
+					CustomerEmail: ticket.CustomerEmail,
+					Price:         ticket.Price,
+				}
+
+				payload, err := json.Marshal(event)
+				if err != nil {
+					return err
+				}
+
+				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
+				if err := pub.Publish("TicketBookingConfirmed", msg); err != nil {
+					return err
+				}
+			} else if ticket.Status == "canceled" {
+				event := TicketBookingCanceled{
+					Header:        NewEventHeader(),
+					TicketID:      ticket.TicketID,
+					CustomerEmail: ticket.CustomerEmail,
+					Price:         ticket.Price,
+				}
+
+				payload, err := json.Marshal(event)
+				if err != nil {
+					return err
+				}
+
+				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
+				if err := pub.Publish("TicketBookingCanceled", msg); err != nil {
+					return err
+				}
 			}
 
-			event := TicketBookingConfirmed{
-				Header:        NewEventHeader("TicketBookingConfirmed"),
-				TicketID:      ticket.TicketID,
-				CustomerEmail: ticket.CustomerEmail,
-				Price:         ticket.Price,
-			}
-
-			payload, err := json.Marshal(event)
-			if err != nil {
-				return err
-			}
-
-			msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
-			if err := pub.Publish("TicketBookingConfirmed", msg); err != nil {
-				return err
-			}
 		}
 
 		return c.NoContent(http.StatusOK)
@@ -175,6 +208,24 @@ func main() {
 			return spreadsheetsClient.AppendRow(
 				msg.Context(),
 				"tickets-to-print",
+				[]string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency},
+			)
+		},
+	)
+
+	router.AddNoPublisherHandler(
+		"tickets_to_refund_handler",
+		"TicketBookingCanceled",
+		cancelTicketSub,
+		func(msg *message.Message) error {
+			var payload TicketBookingCanceled
+			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+				return err
+			}
+
+			return spreadsheetsClient.AppendRow(
+				msg.Context(),
+				"tickets-to-refund",
 				[]string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency},
 			)
 		},
