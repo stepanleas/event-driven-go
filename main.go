@@ -73,7 +73,13 @@ type TicketBookingCanceled struct {
 func main() {
 	log.Init(logrus.InfoLevel)
 
-	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), nil)
+	clients, err := clients.NewClients(
+		os.Getenv("GATEWAY_ADDR"),
+		func(ctx context.Context, req *http.Request) error {
+			req.Header.Set("Correlation-ID", log.CorrelationIDFromContext(ctx))
+			return nil
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -146,6 +152,7 @@ func main() {
 				}
 
 				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
+				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
 				if err := pub.Publish("TicketBookingConfirmed", msg); err != nil {
 					return err
 				}
@@ -163,6 +170,7 @@ func main() {
 				}
 
 				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
+				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
 				if err := pub.Publish("TicketBookingCanceled", msg); err != nil {
 					return err
 				}
@@ -178,6 +186,22 @@ func main() {
 		panic(err)
 	}
 
+	router.AddMiddleware(func(h message.HandlerFunc) message.HandlerFunc {
+		return func(msg *message.Message) ([]*message.Message, error) {
+			ctx := msg.Context()
+
+			reqCorrelationId := msg.Metadata.Get("correlation_id")
+			if reqCorrelationId == "" {
+				reqCorrelationId = watermill.NewUUID()
+			}
+
+			ctx = log.ContextWithCorrelationID(ctx, reqCorrelationId)
+
+			msg.SetContext(ctx)
+
+			return h(msg)
+		}
+	})
 	router.AddMiddleware(LoggingMiddleware)
 
 	router.AddNoPublisherHandler(
