@@ -1,48 +1,71 @@
-# Project: Handle Cancellations 
+# Project: Logging middleware
 
+Some middleware functions need a dependency or config. There are two approaches you can use.
 
-<div class="alert alert-dismissible bg-info text-white d-flex flex-column flex-sm-row p-7 mb-10">
-    <div class="d-flex flex-column">
-        <h3 class="mb-5 text-white">
-			Background	
-		</h3>
-        <span>
+First, simply pass the dependency as an argument to the middleware.
+It looks quite complex, but it's basically a function returning a middleware function.
 
-With more tickets to handle, refunds also become more frequent.
-Because our webhook is asynchronous, it's possible that a ticket gets canceled
-right after the purchase because someone else bought it first.
-Right now, our operations team handles these cases manually; it's time we help them out a bit.
+```go
+func SaveMessageMiddleware(saver MessageSaver) func (h message.HandlerFunc) message.HandlerFunc {
+	return func(next message.HandlerFunc) message.HandlerFunc {
+		return func(msg *message.Message) ([]*message.Message, error) {
+			err := saver.Save(msg)
+			if err != nil {
+				return nil, err
+			}
+			
+			return next(msg)
+		}
+	}
+}
+```
 
-</span>
-	</div>
-	</div>
+Use it like this:
+
+```go
+router.AddMiddleware(SaveMessageMiddleware(saver))
+```
+
+When you need more dependencies, you can consider making the function a struct.
+
+```go
+type RandomFail struct {
+	Chance float64
+	Error error
+}
+
+func (m RandomFail) Middleware(next message.HandlerFunc) message.HandlerFunc {
+	return func(msg *message.Message) ([]*message.Message, error) {
+		if rand.Float64() < m.Chance {
+			return nil, m.Error
+		}
+		return next(msg)
+	}
+}
+```
+
+Use it like this (notice how the `Middleware` method is passed, not the struct itself):
+
+```go
+router.AddMiddleware(RandomFail{
+	Chance: 0.1, 
+	Error: errors.New("random error occurred"),
+}.Middleware)
+```
 
 ## Exercise
 
 File: `project/main.go`
 
-The new API includes a `status` field for each ticket.
+Add a middleware function to your project that logs incoming messages. The log message should be:
 
-We should differentiate between `confirmed` and `canceled` tickets. 
-
-For each `confirmed` ticket, keep the current behavior: publishing the `TicketBookingConfirmed` event.
-
-For each `canceled` ticket, publish a new event instead: `TicketBookingCanceled`.
-
-```go
-type TicketBookingCanceled struct {
-	Header        EventHeader `json:"header"`
-	TicketID      string      `json:"ticket_id"`
-	CustomerEmail string      `json:"customer_email"`
-	Price         Money       `json:"price"`
-}
+```text
+Handling a message
 ```
 
-Add a new handler for this event. Remember to use a new subscriber with a unique consumer group.
+It should include a log field called `message_uuid` with the message UUID.
+Using logrus, you can add log fields like this:
 
-The new handler should append a row to the `tickets-to-refund` spreadsheet with the following columns:
-
-- Ticket ID
-- Customer Email
-- Price Amount
-- Price Currency
+```go
+logrus.WithField("key", value).Info("Log message")
+```

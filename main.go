@@ -178,6 +178,8 @@ func main() {
 		panic(err)
 	}
 
+	router.AddMiddleware(LoggingMiddleware)
+
 	router.AddNoPublisherHandler(
 		"issue_receipt_handler",
 		"TicketBookingConfirmed",
@@ -259,6 +261,16 @@ func main() {
 
 	if err := errgrp.Wait(); err != nil {
 		panic(err)
+	}
+}
+
+func LoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
+	return func(msg *message.Message) ([]*message.Message, error) {
+		logger := logrus.WithField("message_uuid", msg.UUID)
+
+		logger.Info("Handling a message")
+
+		return next(msg)
 	}
 }
 
