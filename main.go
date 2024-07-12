@@ -186,22 +186,7 @@ func main() {
 		panic(err)
 	}
 
-	router.AddMiddleware(func(h message.HandlerFunc) message.HandlerFunc {
-		return func(msg *message.Message) ([]*message.Message, error) {
-			ctx := msg.Context()
-
-			reqCorrelationId := msg.Metadata.Get("correlation_id")
-			if reqCorrelationId == "" {
-				reqCorrelationId = watermill.NewUUID()
-			}
-
-			ctx = log.ContextWithCorrelationID(ctx, reqCorrelationId)
-
-			msg.SetContext(ctx)
-
-			return h(msg)
-		}
-	})
+	router.AddMiddleware(CorrelationIDMiddleware)
 	router.AddMiddleware(LoggingMiddleware)
 
 	router.AddNoPublisherHandler(
@@ -288,11 +273,29 @@ func main() {
 	}
 }
 
+func CorrelationIDMiddleware(h message.HandlerFunc) message.HandlerFunc {
+	return func(msg *message.Message) ([]*message.Message, error) {
+		ctx := msg.Context()
+
+		reqCorrelationId := msg.Metadata.Get("correlation_id")
+		if reqCorrelationId == "" {
+			reqCorrelationId = watermill.NewUUID()
+		}
+
+		ctx = log.ToContext(ctx, logrus.WithFields(logrus.Fields{"correlation_id": reqCorrelationId}))
+		ctx = log.ContextWithCorrelationID(ctx, reqCorrelationId)
+
+		msg.SetContext(ctx)
+
+		return h(msg)
+	}
+}
+
 func LoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
 	return func(msg *message.Message) ([]*message.Message, error) {
-		logger := logrus.WithField("message_uuid", msg.UUID)
+		logger := log.FromContext(msg.Context())
 
-		logger.Info("Handling a message")
+		logger.WithField("message_uuid", msg.UUID).Info("Handling a message")
 
 		return next(msg)
 	}
