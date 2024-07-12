@@ -24,6 +24,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const brokenMessageID = "2beaf5bc-d5e4-4653-b075-2b36bbf28949"
+
 type IssueReceiptRequest struct {
 	TicketID string `json:"ticket_id"`
 	Price    Money  `json:"price"`
@@ -154,6 +156,8 @@ func main() {
 
 				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
 				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
+				msg.Metadata.Set("type", "TicketBookingConfirmed")
+
 				if err := pub.Publish("TicketBookingConfirmed", msg); err != nil {
 					return err
 				}
@@ -172,6 +176,8 @@ func main() {
 
 				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
 				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
+				msg.Metadata.Set("type", "TicketBookingCanceled")
+
 				if err := pub.Publish("TicketBookingCanceled", msg); err != nil {
 					return err
 				}
@@ -196,6 +202,14 @@ func main() {
 		"TicketBookingConfirmed",
 		issueReceiptSub,
 		func(msg *message.Message) error {
+			if msg.UUID == brokenMessageID {
+				return nil
+			}
+
+			if msg.Metadata.Get("type") != "TicketBookingConfirmed" {
+				return nil
+			}
+
 			var payload TicketBookingConfirmed
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
@@ -213,6 +227,14 @@ func main() {
 		"TicketBookingConfirmed",
 		appendToTrackerSub,
 		func(msg *message.Message) error {
+			if msg.UUID == brokenMessageID {
+				return nil
+			}
+
+			if msg.Metadata.Get("type") != "TicketBookingConfirmed" {
+				return nil
+			}
+
 			var payload TicketBookingConfirmed
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
@@ -231,6 +253,14 @@ func main() {
 		"TicketBookingCanceled",
 		cancelTicketSub,
 		func(msg *message.Message) error {
+			if msg.UUID == brokenMessageID {
+				return nil
+			}
+
+			if msg.Metadata.Get("type") != "TicketBookingCanceled" {
+				return nil
+			}
+
 			var payload TicketBookingCanceled
 			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 				return err
