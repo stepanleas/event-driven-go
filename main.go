@@ -293,11 +293,16 @@ func CorrelationIDMiddleware(h message.HandlerFunc) message.HandlerFunc {
 
 func LoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
 	return func(msg *message.Message) ([]*message.Message, error) {
-		logger := log.FromContext(msg.Context())
+		logger := log.FromContext(msg.Context()).WithField("message_uuid", msg.UUID)
 
-		logger.WithField("message_uuid", msg.UUID).Info("Handling a message")
+		logger.Info("Handling a message")
 
-		return next(msg)
+		msgs, err := next(msg)
+		if err != nil {
+			logger.WithError(err).Error("Message handling error")
+		}
+
+		return msgs, err
 	}
 }
 

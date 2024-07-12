@@ -1,27 +1,60 @@
-# Project: Context logger
+# Error logging
 
-Since you now have the correlation ID propagated, it would be helpful to include it in all log messages.
-To make it easier to use in any place in code, you can create a logger with a correlation ID field
-and keep it in the request's context.
+In the next several exercises, we'll look at a few ways to handle errors in handlers.
 
-The common library provides the `log.ToContext` function that does this.
+Middleware functions are a great place to keep the error-handling logic. 
+There are two ways you can capture errors in middleware.
 
-```go
-ctx := log.ToContext(ctx, logrus.WithFields(logrus.Fields{"correlation_id": correlationID}))
-```
-
-There's also `log.FromContext`, which retrieves the logger:
+The first one is to store the return values in variables and return them.
 
 ```go
-logger := log.FromContext(msg.Context())
-logger.WithField("key", "value").Info("Log message")
+func HandleErrors(next message.HandlerFunc) message.HandlerFunc {
+	return func(msg *message.Message) ([]*message.Message, error) {
+		msgs, err := next(msg)
+		
+		if err != nil {
+			// Handle the error 
+		}
+		
+		return msgs, err
+	}
+}
 ```
+
+The second one is to use `defer` and named returns. This is a different flavor of the same thing.
+
+```go
+func HandleErrors(next message.HandlerFunc) message.HandlerFunc {
+	return func(msg *message.Message) (msgs []*message.Message, err error) {
+		defer func() {
+			if err != nil { 
+				// Handle the error
+			}
+		}()
+
+		return next(msg)
+	}
+}
+```
+
+Note that regardless of when in the sequence the middleware is added,
+the error handling will be done at the end, after the handler and all other middleware functions are executed.
+Previously, we used middleware that executed before the handler.
+This pattern is a way to run some code after it.
 
 ## Exercise
 
 File: `project/main.go`
 
-Modify the correlation ID middleware you created before to store the logger in the context.
+Extend the logging middleware to also log errors.
+
+The log message should be:
+
+```
+Message handling error
+```
+
+It should include two log fields: `error` with the error and `message_uuid` with the message UUID.
 
 
 <div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
@@ -34,15 +67,19 @@ Modify the correlation ID middleware you created before to store the logger in t
 		</h3>
         <span>
 
-If you prefer, you can also create a separate middleware function that gets the correlation ID out of the context (with `log.CorrelationIDFromContext`)
-and stores the logger.
+There are two ways you can add multiple keys in logrus:
+
+```go
+logger.WithField("key1", value1).WithField("key2", value2).Info("Log message")
+```
+
+```go
+logger.WithFields(logrus.Fields{
+	"key1": value1, 
+	"key2": value2,
+}).Info("Log message")
+```
 
 </span>
 	</div>
 	</div>
-
-Modify the logger middleware to use the logger from the context to log messages.
-This way, each `Handling a message` log should automatically include a `correlation_id` field.
-
-Be careful about the order of the middleware functions!
-You need the middleware storing the correlation ID and the logger to be before the logging middleware.
