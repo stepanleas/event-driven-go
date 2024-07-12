@@ -210,14 +210,22 @@ func main() {
 				return nil
 			}
 
-			var payload TicketBookingConfirmed
-			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			var event TicketBookingConfirmed
+			if err := json.Unmarshal(msg.Payload, &event); err != nil {
 				return err
 			}
 
+			currency := event.Price.Currency
+			if currency == "" {
+				currency = "USD"
+			}
+
 			return receiptsClient.IssueReceipt(msg.Context(), IssueReceiptRequest{
-				TicketID: payload.TicketID,
-				Price:    payload.Price,
+				TicketID: event.TicketID,
+				Price: Money{
+					Amount:   event.Price.Amount,
+					Currency: currency,
+				},
 			})
 		},
 	)
@@ -235,15 +243,20 @@ func main() {
 				return nil
 			}
 
-			var payload TicketBookingConfirmed
-			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			var event TicketBookingConfirmed
+			if err := json.Unmarshal(msg.Payload, &event); err != nil {
 				return err
+			}
+
+			currency := event.Price.Currency
+			if currency == "" {
+				currency = "USD"
 			}
 
 			return spreadsheetsClient.AppendRow(
 				msg.Context(),
 				"tickets-to-print",
-				[]string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency},
+				[]string{event.TicketID, event.CustomerEmail, event.Price.Amount, currency},
 			)
 		},
 	)
@@ -261,15 +274,20 @@ func main() {
 				return nil
 			}
 
-			var payload TicketBookingCanceled
-			if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			var event TicketBookingCanceled
+			if err := json.Unmarshal(msg.Payload, &event); err != nil {
 				return err
+			}
+
+			currency := event.Price.Currency
+			if currency == "" {
+				currency = "USD"
 			}
 
 			return spreadsheetsClient.AppendRow(
 				msg.Context(),
 				"tickets-to-refund",
-				[]string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency},
+				[]string{event.TicketID, event.CustomerEmail, event.Price.Amount, currency},
 			)
 		},
 	)
