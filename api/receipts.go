@@ -4,43 +4,53 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"tickets/valueobject"
+	"tickets/entities"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/receipts"
 )
 
 type IssueReceiptRequest struct {
-	TicketID string            `json:"ticket_id"`
-	Price    valueobject.Money `json:"price"`
+	TicketID string         `json:"ticket_id"`
+	Price    entities.Money `json:"price"`
 }
 
-type ReceiptsClient struct {
+type ReceiptsServiceClient struct {
 	clients *clients.Clients
 }
 
-func NewReceiptsClient(clients *clients.Clients) ReceiptsClient {
-	return ReceiptsClient{
+func NewReceiptsServiceClient(clients *clients.Clients) ReceiptsServiceClient {
+	return ReceiptsServiceClient{
 		clients: clients,
 	}
 }
 
-func (c ReceiptsClient) IssueReceipt(ctx context.Context, request IssueReceiptRequest) error {
-	body := receipts.PutReceiptsJSONRequestBody{
-		TicketId: request.TicketID,
+func (c ReceiptsServiceClient) IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error) {
+	resp, err := c.clients.Receipts.PutReceiptsWithResponse(ctx, receipts.CreateReceipt{
 		Price: receipts.Money{
 			MoneyAmount:   request.Price.Amount,
 			MoneyCurrency: request.Price.Currency,
 		},
-	}
-
-	receiptsResp, err := c.clients.Receipts.PutReceiptsWithResponse(ctx, body)
+		TicketId: request.TicketID,
+	})
 	if err != nil {
-		return err
-	}
-	if receiptsResp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %v", receiptsResp.StatusCode())
+		return entities.IssueReceiptResponse{}, fmt.Errorf("failed to post receipt: %w", err)
 	}
 
-	return nil
+	switch resp.StatusCode() {
+	case http.StatusOK:
+		// receipt already exists
+		return entities.IssueReceiptResponse{
+			ReceiptNumber: resp.JSON200.Number,
+			IssuedAt:      resp.JSON200.IssuedAt,
+		}, nil
+	case http.StatusCreated:
+		// receipt was created
+		return entities.IssueReceiptResponse{
+			ReceiptNumber: resp.JSON201.Number,
+			IssuedAt:      resp.JSON201.IssuedAt,
+		}, nil
+	default:
+		return entities.IssueReceiptResponse{}, fmt.Errorf("unexpected status code for POST receipts-api/receipts: %d", resp.StatusCode())
+	}
 }

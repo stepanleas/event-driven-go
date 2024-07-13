@@ -2,17 +2,18 @@ package handlers
 
 import (
 	"encoding/json"
-	"tickets/api"
-	"tickets/events/entities"
+
+	"tickets/entities"
+	"tickets/message/contracts"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 )
 
 type TicketsToRefundHandler struct {
-	spreadsheetsClient api.SpreadsheetsClient
+	spreadsheetsClient contracts.SpreadsheetsAPI
 }
 
-func NewTicketsToRefundHandler(spreadsheetsClient api.SpreadsheetsClient) TicketsToRefundHandler {
+func NewTicketsToRefundHandler(spreadsheetsClient contracts.SpreadsheetsAPI) TicketsToRefundHandler {
 	return TicketsToRefundHandler{spreadsheetsClient: spreadsheetsClient}
 }
 

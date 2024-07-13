@@ -3,23 +3,22 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"tickets/events/entities"
-	"tickets/valueobject"
+	"tickets/entities"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/labstack/echo/v4"
 )
 
-type TicketsStatusRequest struct {
-	Tickets []TicketStatus `json:"tickets"`
+type ticketsStatusRequest struct {
+	Tickets []ticketStatus `json:"tickets"`
 }
 
-type TicketStatus struct {
-	TicketID      string            `json:"ticket_id"`
-	Status        string            `json:"status"`
-	CustomerEmail string            `json:"customer_email"`
-	Price         valueobject.Money `json:"price"`
+type ticketStatus struct {
+	TicketID      string         `json:"ticket_id"`
+	Status        string         `json:"status"`
+	CustomerEmail string         `json:"customer_email"`
+	Price         entities.Money `json:"price"`
 }
 
 type TicketController struct {
@@ -35,7 +34,7 @@ func (ctrl TicketController) HealthCheck(c echo.Context) error {
 }
 
 func (ctrl TicketController) Status(c echo.Context) error {
-	var request TicketsStatusRequest
+	var request ticketsStatusRequest
 	err := c.Bind(&request)
 	if err != nil {
 		return err

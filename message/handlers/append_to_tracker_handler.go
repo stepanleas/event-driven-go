@@ -2,17 +2,18 @@ package handlers
 
 import (
 	"encoding/json"
-	"tickets/api"
-	"tickets/events/entities"
+
+	"tickets/entities"
+	"tickets/message/contracts"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 )
 
 type AppendToTrackerHandler struct {
-	spreadsheetsClient api.SpreadsheetsClient
+	spreadsheetsClient contracts.SpreadsheetsAPI
 }
 
-func NewAppendToTrackerHandler(spreadsheetsClient api.SpreadsheetsClient) AppendToTrackerHandler {
+func NewAppendToTrackerHandler(spreadsheetsClient contracts.SpreadsheetsAPI) AppendToTrackerHandler {
 	return AppendToTrackerHandler{spreadsheetsClient: spreadsheetsClient}
 }
 

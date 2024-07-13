@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"tickets/api"
-	"tickets/events/entities"
-	"tickets/valueobject"
+
+	"tickets/entities"
+	"tickets/message/contracts"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 )
@@ -12,10 +12,10 @@ import (
 const brokenMessageID = "2beaf5bc-d5e4-4653-b075-2b36bbf28949"
 
 type IssueReceiptsHandler struct {
-	receiptsClient api.ReceiptsClient
+	receiptsClient contracts.ReceiptsService
 }
 
-func NewIssueReceiptsHandler(receiptsClient api.ReceiptsClient) IssueReceiptsHandler {
+func NewIssueReceiptsHandler(receiptsClient contracts.ReceiptsService) IssueReceiptsHandler {
 	return IssueReceiptsHandler{receiptsClient: receiptsClient}
 }
 
@@ -38,11 +38,13 @@ func (h IssueReceiptsHandler) Handle(msg *message.Message) error {
 		currency = "USD"
 	}
 
-	return h.receiptsClient.IssueReceipt(msg.Context(), api.IssueReceiptRequest{
+	_, err := h.receiptsClient.IssueReceipt(msg.Context(), entities.IssueReceiptRequest{
 		TicketID: event.TicketID,
-		Price: valueobject.Money{
+		Price: entities.Money{
 			Amount:   event.Price.Amount,
 			Currency: currency,
 		},
 	})
+
+	return err
 }
