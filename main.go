@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"tickets/events"
+	"tickets/valueobject"
 	"time"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
@@ -27,8 +29,8 @@ import (
 const brokenMessageID = "2beaf5bc-d5e4-4653-b075-2b36bbf28949"
 
 type IssueReceiptRequest struct {
-	TicketID string `json:"ticket_id"`
-	Price    Money  `json:"price"`
+	TicketID string            `json:"ticket_id"`
+	Price    valueobject.Money `json:"price"`
 }
 
 type TicketsStatusRequest struct {
@@ -36,41 +38,10 @@ type TicketsStatusRequest struct {
 }
 
 type TicketStatus struct {
-	TicketID      string `json:"ticket_id"`
-	Status        string `json:"status"`
-	CustomerEmail string `json:"customer_email"`
-	Price         Money  `json:"price"`
-}
-
-type Money struct {
-	Amount   string `json:"amount"`
-	Currency string `json:"currency"`
-}
-
-type EventHeader struct {
-	ID          string `json:"id"`
-	PublishedAt string `json:"published_at"`
-}
-
-func NewEventHeader() EventHeader {
-	return EventHeader{
-		ID:          watermill.NewUUID(),
-		PublishedAt: time.Now().Format(time.RFC3339),
-	}
-}
-
-type TicketBookingConfirmed struct {
-	Header        EventHeader `json:"header"`
-	TicketID      string      `json:"ticket_id"`
-	CustomerEmail string      `json:"customer_email"`
-	Price         Money       `json:"price"`
-}
-
-type TicketBookingCanceled struct {
-	Header        EventHeader `json:"header"`
-	TicketID      string      `json:"ticket_id"`
-	CustomerEmail string      `json:"customer_email"`
-	Price         Money       `json:"price"`
+	TicketID      string            `json:"ticket_id"`
+	Status        string            `json:"status"`
+	CustomerEmail string            `json:"customer_email"`
+	Price         valueobject.Money `json:"price"`
 }
 
 func main() {
@@ -142,8 +113,8 @@ func main() {
 
 		for _, ticket := range request.Tickets {
 			if ticket.Status == "confirmed" {
-				event := TicketBookingConfirmed{
-					Header:        NewEventHeader(),
+				event := events.TicketBookingConfirmed{
+					Header:        events.NewEventHeader(),
 					TicketID:      ticket.TicketID,
 					CustomerEmail: ticket.CustomerEmail,
 					Price:         ticket.Price,
@@ -162,8 +133,8 @@ func main() {
 					return err
 				}
 			} else if ticket.Status == "canceled" {
-				event := TicketBookingCanceled{
-					Header:        NewEventHeader(),
+				event := events.TicketBookingCanceled{
+					Header:        events.NewEventHeader(),
 					TicketID:      ticket.TicketID,
 					CustomerEmail: ticket.CustomerEmail,
 					Price:         ticket.Price,
@@ -210,7 +181,7 @@ func main() {
 				return nil
 			}
 
-			var event TicketBookingConfirmed
+			var event events.TicketBookingConfirmed
 			if err := json.Unmarshal(msg.Payload, &event); err != nil {
 				return err
 			}
@@ -222,7 +193,7 @@ func main() {
 
 			return receiptsClient.IssueReceipt(msg.Context(), IssueReceiptRequest{
 				TicketID: event.TicketID,
-				Price: Money{
+				Price: valueobject.Money{
 					Amount:   event.Price.Amount,
 					Currency: currency,
 				},
@@ -243,7 +214,7 @@ func main() {
 				return nil
 			}
 
-			var event TicketBookingConfirmed
+			var event events.TicketBookingConfirmed
 			if err := json.Unmarshal(msg.Payload, &event); err != nil {
 				return err
 			}
@@ -274,7 +245,7 @@ func main() {
 				return nil
 			}
 
-			var event TicketBookingCanceled
+			var event events.TicketBookingCanceled
 			if err := json.Unmarshal(msg.Payload, &event); err != nil {
 				return err
 			}
