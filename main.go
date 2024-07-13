@@ -2,39 +2,23 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 	"os/signal"
 	"tickets/api"
 	"tickets/events"
 	"tickets/events/handlers"
-	"tickets/valueobject"
+	ticketsHttp "tickets/http"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	commonHTTP "github.com/ThreeDotsLabs/go-event-driven/common/http"
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
-	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
-
-const brokenMessageID = "2beaf5bc-d5e4-4653-b075-2b36bbf28949"
-
-type TicketsStatusRequest struct {
-	Tickets []TicketStatus `json:"tickets"`
-}
-
-type TicketStatus struct {
-	TicketID      string            `json:"ticket_id"`
-	Status        string            `json:"status"`
-	CustomerEmail string            `json:"customer_email"`
-	Price         valueobject.Money `json:"price"`
-}
 
 func main() {
 	log.Init(logrus.InfoLevel)
@@ -52,8 +36,6 @@ func main() {
 
 	receiptsClient := api.NewReceiptsClient(clients)
 	spreadsheetsClient := api.NewSpreadsheetsClient(clients)
-
-	e := commonHTTP.NewEcho()
 
 	logger := watermill.NewStdLogger(false, false)
 
@@ -92,64 +74,8 @@ func main() {
 		panic(err)
 	}
 
-	e.GET("/health", func(c echo.Context) error {
-		return c.String(http.StatusOK, "ok")
-	})
-
-	e.POST("/tickets-status", func(c echo.Context) error {
-		var request TicketsStatusRequest
-		err := c.Bind(&request)
-		if err != nil {
-			return err
-		}
-
-		for _, ticket := range request.Tickets {
-			if ticket.Status == "confirmed" {
-				event := events.TicketBookingConfirmed{
-					Header:        events.NewEventHeader(),
-					TicketID:      ticket.TicketID,
-					CustomerEmail: ticket.CustomerEmail,
-					Price:         ticket.Price,
-				}
-
-				payload, err := json.Marshal(event)
-				if err != nil {
-					return err
-				}
-
-				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
-				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
-				msg.Metadata.Set("type", "TicketBookingConfirmed")
-
-				if err := pub.Publish("TicketBookingConfirmed", msg); err != nil {
-					return err
-				}
-			} else if ticket.Status == "canceled" {
-				event := events.TicketBookingCanceled{
-					Header:        events.NewEventHeader(),
-					TicketID:      ticket.TicketID,
-					CustomerEmail: ticket.CustomerEmail,
-					Price:         ticket.Price,
-				}
-
-				payload, err := json.Marshal(event)
-				if err != nil {
-					return err
-				}
-
-				msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
-				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
-				msg.Metadata.Set("type", "TicketBookingCanceled")
-
-				if err := pub.Publish("TicketBookingCanceled", msg); err != nil {
-					return err
-				}
-			}
-
-		}
-
-		return c.NoContent(http.StatusOK)
-	})
+	e := commonHTTP.NewEcho()
+	ticketsHttp.Routes(e, pub)
 
 	router := events.NewRouter(logger)
 
