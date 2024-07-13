@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"tickets/api"
-	"tickets/events"
+	"tickets/events/entities"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 )
@@ -25,7 +25,7 @@ func (h TicketsToRefundHandler) Handle(msg *message.Message) error {
 		return nil
 	}
 
-	var event events.TicketBookingCanceled
+	var event entities.TicketBookingCanceled
 	if err := json.Unmarshal(msg.Payload, &event); err != nil {
 		return err
 	}

@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"tickets/api"
 	"tickets/events"
-	"tickets/events/handlers"
 	ticketsHttp "tickets/http"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
@@ -79,42 +78,27 @@ func main() {
 
 	router := events.NewRouter(logger)
 
-	router.AddMiddleware(events.RetryMiddleware(logger).Middleware)
-	router.AddMiddleware(events.CorrelationIDMiddleware)
-	router.AddMiddleware(events.LoggingMiddleware)
-
-	router.AddNoPublisherHandler(
-		"issue_receipt_handler",
-		"TicketBookingConfirmed",
-		issueReceiptSub,
-		handlers.NewIssueReceiptsHandler(receiptsClient).Handle,
+	router.AddMiddleware(
+		events.RetryMiddleware(logger).Middleware,
+		events.CorrelationIDMiddleware,
+		events.LoggingMiddleware,
 	)
 
-	router.AddNoPublisherHandler(
-		"append_to_tracker_handler",
-		"TicketBookingConfirmed",
-		appendToTrackerSub,
-		handlers.NewAppendToTrackerHandler(spreadsheetsClient).Handle,
-	)
-
-	router.AddNoPublisherHandler(
-		"tickets_to_refund_handler",
-		"TicketBookingCanceled",
-		cancelTicketSub,
-		handlers.NewTicketsToRefundHandler(spreadsheetsClient).Handle,
-	)
+	router.AddIssueReceiptHandler(issueReceiptSub, receiptsClient)
+	router.AddAppendToTrackerHandler(appendToTrackerSub, spreadsheetsClient)
+	router.AddTicketsToRefundHandler(cancelTicketSub, spreadsheetsClient)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	errgrp, ctx := errgroup.WithContext(ctx)
 
 	errgrp.Go(func() error {
-		return router.Run(ctx)
+		return router.GetRouter().Run(ctx)
 	})
 
 	errgrp.Go(func() error {
 		// we don't want to start HTTP server before Watermill router (so service won't be healthy before it's ready)
-		<-router.Running()
+		<-router.GetRouter().Running()
 
 		err := e.Start(":8080")
 

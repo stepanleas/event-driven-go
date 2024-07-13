@@ -3,7 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"tickets/events"
+	"tickets/events/entities"
 	"tickets/valueobject"
 
 	"github.com/ThreeDotsLabs/watermill"
@@ -43,8 +43,8 @@ func (ctrl TicketController) Status(c echo.Context) error {
 
 	for _, ticket := range request.Tickets {
 		if ticket.Status == "confirmed" {
-			event := events.TicketBookingConfirmed{
-				Header:        events.NewEventHeader(),
+			event := entities.TicketBookingConfirmed{
+				Header:        entities.NewEventHeader(),
 				TicketID:      ticket.TicketID,
 				CustomerEmail: ticket.CustomerEmail,
 				Price:         ticket.Price,
@@ -63,8 +63,8 @@ func (ctrl TicketController) Status(c echo.Context) error {
 				return err
 			}
 		} else if ticket.Status == "canceled" {
-			event := events.TicketBookingCanceled{
-				Header:        events.NewEventHeader(),
+			event := entities.TicketBookingCanceled{
+				Header:        entities.NewEventHeader(),
 				TicketID:      ticket.TicketID,
 				CustomerEmail: ticket.CustomerEmail,
 				Price:         ticket.Price,
