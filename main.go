@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"tickets/api"
 	"tickets/events"
+	"tickets/events/handlers"
 	"tickets/valueobject"
-	"time"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients"
 	commonHTTP "github.com/ThreeDotsLabs/go-event-driven/common/http"
@@ -17,7 +17,6 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -152,108 +151,31 @@ func main() {
 		return c.NoContent(http.StatusOK)
 	})
 
-	router, err := message.NewRouter(message.RouterConfig{}, logger)
-	if err != nil {
-		panic(err)
-	}
+	router := events.NewRouter(logger)
 
-	router.AddMiddleware(RetryMiddleware(logger).Middleware)
-	router.AddMiddleware(CorrelationIDMiddleware)
-	router.AddMiddleware(LoggingMiddleware)
+	router.AddMiddleware(events.RetryMiddleware(logger).Middleware)
+	router.AddMiddleware(events.CorrelationIDMiddleware)
+	router.AddMiddleware(events.LoggingMiddleware)
 
 	router.AddNoPublisherHandler(
 		"issue_receipt_handler",
 		"TicketBookingConfirmed",
 		issueReceiptSub,
-		func(msg *message.Message) error {
-			if msg.UUID == brokenMessageID {
-				return nil
-			}
-
-			if msg.Metadata.Get("type") != "TicketBookingConfirmed" {
-				return nil
-			}
-
-			var event events.TicketBookingConfirmed
-			if err := json.Unmarshal(msg.Payload, &event); err != nil {
-				return err
-			}
-
-			currency := event.Price.Currency
-			if currency == "" {
-				currency = "USD"
-			}
-
-			return receiptsClient.IssueReceipt(msg.Context(), api.IssueReceiptRequest{
-				TicketID: event.TicketID,
-				Price: valueobject.Money{
-					Amount:   event.Price.Amount,
-					Currency: currency,
-				},
-			})
-		},
+		handlers.NewIssueReceiptsHandler(receiptsClient).Handle,
 	)
 
 	router.AddNoPublisherHandler(
 		"append_to_tracker_handler",
 		"TicketBookingConfirmed",
 		appendToTrackerSub,
-		func(msg *message.Message) error {
-			if msg.UUID == brokenMessageID {
-				return nil
-			}
-
-			if msg.Metadata.Get("type") != "TicketBookingConfirmed" {
-				return nil
-			}
-
-			var event events.TicketBookingConfirmed
-			if err := json.Unmarshal(msg.Payload, &event); err != nil {
-				return err
-			}
-
-			currency := event.Price.Currency
-			if currency == "" {
-				currency = "USD"
-			}
-
-			return spreadsheetsClient.AppendRow(
-				msg.Context(),
-				"tickets-to-print",
-				[]string{event.TicketID, event.CustomerEmail, event.Price.Amount, currency},
-			)
-		},
+		handlers.NewAppendToTrackerHandler(spreadsheetsClient).Handle,
 	)
 
 	router.AddNoPublisherHandler(
 		"tickets_to_refund_handler",
 		"TicketBookingCanceled",
 		cancelTicketSub,
-		func(msg *message.Message) error {
-			if msg.UUID == brokenMessageID {
-				return nil
-			}
-
-			if msg.Metadata.Get("type") != "TicketBookingCanceled" {
-				return nil
-			}
-
-			var event events.TicketBookingCanceled
-			if err := json.Unmarshal(msg.Payload, &event); err != nil {
-				return err
-			}
-
-			currency := event.Price.Currency
-			if currency == "" {
-				currency = "USD"
-			}
-
-			return spreadsheetsClient.AppendRow(
-				msg.Context(),
-				"tickets-to-refund",
-				[]string{event.TicketID, event.CustomerEmail, event.Price.Amount, currency},
-			)
-		},
+		handlers.NewTicketsToRefundHandler(spreadsheetsClient).Handle,
 	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -284,48 +206,5 @@ func main() {
 
 	if err := errgrp.Wait(); err != nil {
 		panic(err)
-	}
-}
-
-func CorrelationIDMiddleware(h message.HandlerFunc) message.HandlerFunc {
-	return func(msg *message.Message) ([]*message.Message, error) {
-		ctx := msg.Context()
-
-		reqCorrelationId := msg.Metadata.Get("correlation_id")
-		if reqCorrelationId == "" {
-			reqCorrelationId = watermill.NewUUID()
-		}
-
-		ctx = log.ToContext(ctx, logrus.WithFields(logrus.Fields{"correlation_id": reqCorrelationId}))
-		ctx = log.ContextWithCorrelationID(ctx, reqCorrelationId)
-
-		msg.SetContext(ctx)
-
-		return h(msg)
-	}
-}
-
-func LoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
-	return func(msg *message.Message) ([]*message.Message, error) {
-		logger := log.FromContext(msg.Context()).WithField("message_uuid", msg.UUID)
-
-		logger.Info("Handling a message")
-
-		msgs, err := next(msg)
-		if err != nil {
-			logger.WithError(err).Error("Message handling error")
-		}
-
-		return msgs, err
-	}
-}
-
-func RetryMiddleware(logger watermill.LoggerAdapter) middleware.Retry {
-	return middleware.Retry{
-		MaxRetries:      10,
-		InitialInterval: time.Millisecond * 100,
-		MaxInterval:     time.Second,
-		Multiplier:      2,
-		Logger:          logger,
 	}
 }
