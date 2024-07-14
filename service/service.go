@@ -53,9 +53,7 @@ func New(
 	}
 }
 
-func (s Service) Run(
-	ctx context.Context,
-) error {
+func (s Service) Run(ctx context.Context) error {
 	errgrp, ctx := errgroup.WithContext(ctx)
 
 	errgrp.Go(func() error {

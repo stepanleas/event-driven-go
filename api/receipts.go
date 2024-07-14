@@ -10,11 +10,6 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/clients/receipts"
 )
 
-type IssueReceiptRequest struct {
-	TicketID string         `json:"ticket_id"`
-	Price    entities.Money `json:"price"`
-}
-
 type ReceiptsServiceClient struct {
 	clients *clients.Clients
 }
