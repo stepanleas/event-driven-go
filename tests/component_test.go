@@ -40,7 +40,7 @@ func TestComponent(t *testing.T) {
 
 	waitForHttpServer(t)
 
-	ticketStatus := TicketStatus{
+	ticket := TicketStatus{
 		TicketID: uuid.NewString(),
 		Status:   "confirmed",
 		Price: Money{
@@ -51,9 +51,18 @@ func TestComponent(t *testing.T) {
 		BookingID: uuid.NewString(),
 	}
 
-	sendTicketsStatus(t, TicketsStatusRequest{Tickets: []TicketStatus{ticketStatus}})
-	assertReceiptForTicketIssued(t, receiptsService, ticketStatus)
-	assertRowToSheetAdded(t, spreadsheetsService, ticketStatus, "tickets-to-print")
+	sendTicketsStatus(t, TicketsStatusRequest{Tickets: []TicketStatus{ticket}})
+	assertReceiptForTicketIssued(t, receiptsService, ticket)
+	assertRowToSheetAdded(t, spreadsheetsService, ticket, "tickets-to-print")
+
+	sendTicketsStatus(t, TicketsStatusRequest{Tickets: []TicketStatus{
+		{
+			TicketID: ticket.TicketID,
+			Status:   "canceled",
+			Email:    ticket.Email,
+		},
+	}})
+	assertRowToSheetAdded(t, spreadsheetsService, ticket, "tickets-to-refund")
 }
 
 func waitForHttpServer(t *testing.T) {

@@ -1,59 +1,13 @@
-# Calling the API
+# Testing ticket cancellation
 
-Now it's time to implement the test logic.
+## Exercise
 
-First, you need to call the service's API.
-To simplify your task, we prepared a helper function that calls your API:
+File: `project/main.go`
 
-```go
-type TicketsStatusRequest struct {
-	Tickets []TicketStatus `json:"tickets"`
-}
+Based on the previous steps, write tests for ticket cancellation.
 
-type TicketStatus struct {
-	TicketID  string `json:"ticket_id"`
-	Status    string `json:"status"`
-	Price     Money  `json:"price"`
-	Email     string `json:"email"`
-	BookingID string `json:"booking_id"`
-}
-
-type Money struct {
-	Amount   string `json:"amount"`
-	Currency string `json:"currency"`
-}
-
-func sendTicketsStatus(t *testing.T, req TicketsStatusRequest) {
-	t.Helper()
-
-	payload, err := json.Marshal(req)
-	require.NoError(t, err)
-
-	correlationID := shortuuid.New()
-
-	ticketIDs := make([]string, 0, len(req.Tickets))
-	for _, ticket := range req.Tickets {
-		ticketIDs = append(ticketIDs, ticket.TicketID)
-	}
-
-	httpReq, err := http.NewRequest(
-		http.MethodPost,
-		"http://localhost:8080/tickets-status",
-		bytes.NewBuffer(payload),
-	)
-	require.NoError(t, err)
-
-	httpReq.Header.Set("Correlation-ID", correlationID)
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(httpReq)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-}
-```
-
-You should call this function only after the health check is successful 
-(it doesn't make sense to call the service if it's not ready).
+1. Call `http://localhost:8080/tickets-status` with `status` set to `canceled`.
+2. Assert that the ticket was added to  the `tickets-to-refund` sheet.
 
 
 <div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
@@ -65,60 +19,9 @@ You should call this function only after the health check is successful
 			Tip
 		</h3>
         <span>
-
-Use helper functions in your tests to encapsulate logic.
-They make the tests much more readable and easier to maintain.
-
-The rule of thumb is to keep the main test path readable enough that you can sit with someone from the business
-and read it together (with a bit of help to understand the syntax).
-
+When you are adding tests to existing functionality, it's good to use the test sabotage technique — write the test
+and then break the code to see if the test fails. This approach has saved us many times from having tests that were not testing anything.
 </span>
 	</div>
 	</div>
 
-### Asserting receipts issued
-
-We prepared a helper function for you that asserts that receipts were issued for the ticket:
-
-```go
-func assertReceiptForTicketIssued(t *testing.T, receiptsService *api.ReceiptsMock, ticket TicketStatus) {
-	assert.EventuallyWithT(
-		t,
-		func(collectT *assert.CollectT) {
-			issuedReceipts := len(receiptsService.IssuedReceipts)
-			t.Log("issued receipts", issuedReceipts)
-
-			assert.Greater(collectT, issuedReceipts, 0, "no receipts issued")
-		},
-		10*time.Second,
-		100*time.Millisecond,
-	)
-	
-	var receipt entities.IssueReceiptRequest
-	var ok bool
-	for _, issuedReceipt := range receiptsService.IssuedReceipts {
-		if issuedReceipt.TicketID != ticket.TicketID {
-			continue
-		}
-		receipt = issuedReceipt
-		ok = true
-		break
-	}
-	require.Truef(t, ok, "receipt for ticket %s not found", ticket.TicketID)
-
-	assert.Equal(t, ticket.TicketID, receipt.TicketID)
-	assert.Equal(t, ticket.Price.Amount, receipt.Price.Amount)
-	assert.Equal(t, ticket.Price.Currency, receipt.Price.Currency)
-}
-```
-
-You should call it after `sendTicketsStatus` and use your mocks to get the receipts.
-
-## Exercise
-
-File: `project/main.go`
-
-Write your component tests in `tests/component_test.go` (it's important to use this directory so that we can verify your solution.)
-
-Add tests for sending a ticket "confirmed" status.
-Assert if the receipt has been issued for the ticket and a row has been added to the "tickets-to-print" sheet.
