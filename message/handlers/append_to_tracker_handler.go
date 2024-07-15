@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 
 	"tickets/entities"
 	"tickets/message/contracts"
 
-	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 )
 
 type AppendToTrackerHandler struct {
@@ -17,28 +17,12 @@ func NewAppendToTrackerHandler(spreadsheetsClient contracts.SpreadsheetsAPI) App
 	return AppendToTrackerHandler{spreadsheetsClient: spreadsheetsClient}
 }
 
-func (h AppendToTrackerHandler) Handle(msg *message.Message) error {
-	if msg.UUID == brokenMessageID {
-		return nil
-	}
-
-	if msg.Metadata.Get("type") != "TicketBookingConfirmed" {
-		return nil
-	}
-
-	var event entities.TicketBookingConfirmed
-	if err := json.Unmarshal(msg.Payload, &event); err != nil {
-		return err
-	}
-
-	currency := event.Price.Currency
-	if currency == "" {
-		currency = "USD"
-	}
+func (h AppendToTrackerHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed) error {
+	log.FromContext(ctx).Info("Generating ticket for booking")
 
 	return h.spreadsheetsClient.AppendRow(
-		msg.Context(),
+		ctx,
 		"tickets-to-print",
-		[]string{event.TicketID, event.CustomerEmail, event.Price.Amount, currency},
+		[]string{event.TicketID, event.CustomerEmail, event.Price.Amount, event.Price.Currency},
 	)
 }

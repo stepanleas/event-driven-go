@@ -1,12 +1,11 @@
 package http
 
 import (
-	"encoding/json"
+	"fmt"
 	"net/http"
 	"tickets/entities"
 
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"github.com/labstack/echo/v4"
 )
 
@@ -22,11 +21,11 @@ type ticketStatus struct {
 }
 
 type TicketController struct {
-	pub message.Publisher
+	eventBus *cqrs.EventBus
 }
 
-func NewTicketController(pub message.Publisher) TicketController {
-	return TicketController{pub: pub}
+func NewTicketController(eventBus *cqrs.EventBus) TicketController {
+	return TicketController{eventBus: eventBus}
 }
 
 func (ctrl TicketController) HealthCheck(c echo.Context) error {
@@ -49,17 +48,8 @@ func (ctrl TicketController) Status(c echo.Context) error {
 				Price:         ticket.Price,
 			}
 
-			payload, err := json.Marshal(event)
-			if err != nil {
-				return err
-			}
-
-			msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
-			msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
-			msg.Metadata.Set("type", "TicketBookingConfirmed")
-
-			if err := ctrl.pub.Publish("TicketBookingConfirmed", msg); err != nil {
-				return err
+			if err := ctrl.eventBus.Publish(c.Request().Context(), event); err != nil {
+				return fmt.Errorf("failed to publish TicketBookingConfirmed event: %w", err)
 			}
 		} else if ticket.Status == "canceled" {
 			event := entities.TicketBookingCanceled{
@@ -69,20 +59,12 @@ func (ctrl TicketController) Status(c echo.Context) error {
 				Price:         ticket.Price,
 			}
 
-			payload, err := json.Marshal(event)
-			if err != nil {
-				return err
+			if err := ctrl.eventBus.Publish(c.Request().Context(), event); err != nil {
+				return fmt.Errorf("failed to publish TicketBookingCanceled event: %w", err)
 			}
-
-			msg := message.NewMessage(watermill.NewUUID(), []byte(payload))
-			msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-Id"))
-			msg.Metadata.Set("type", "TicketBookingCanceled")
-
-			if err := ctrl.pub.Publish("TicketBookingCanceled", msg); err != nil {
-				return err
-			}
+		} else {
+			return fmt.Errorf("unknown ticket status: %s", ticket.Status)
 		}
-
 	}
 
 	return c.NoContent(http.StatusOK)

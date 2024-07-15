@@ -6,8 +6,10 @@ import (
 	ticketsHttp "tickets/http"
 	"tickets/message"
 	"tickets/message/contracts"
+	"tickets/message/events"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	watermillMessage "github.com/ThreeDotsLabs/watermill/message"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -42,8 +44,19 @@ func New(
 		watermillLogger,
 	)
 
+	eventBus := events.NewEventBus(redisPublisher)
+	eventProcessor, err := cqrs.NewEventProcessorWithConfig(
+		watermillRouter,
+		events.NewEventProcessorConfig(redisClient, watermillLogger),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	events.AddEventProcessorHandlers(eventProcessor, receiptsService, spreadsheetsService)
+
 	echoRouter := ticketsHttp.NewHttpRouter(
-		redisPublisher,
+		eventBus,
 		spreadsheetsService,
 	)
 
