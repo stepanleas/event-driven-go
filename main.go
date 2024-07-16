@@ -30,11 +30,11 @@ func main() {
 		panic(err)
 	}
 
-	db, err := sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
+	conn, err := sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer conn.Close()
 
 	redisClient := message.NewRedisClient(os.Getenv("REDIS_ADDR"))
 	defer redisClient.Close()
@@ -43,7 +43,7 @@ func main() {
 	receiptsService := api.NewReceiptsServiceClient(apiClients)
 
 	err = service.New(
-		db,
+		conn,
 		redisClient,
 		spreadsheetsService,
 		receiptsService,

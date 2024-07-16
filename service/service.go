@@ -38,6 +38,8 @@ func New(
 	spreadsheetsService contracts.SpreadsheetsAPI,
 	receiptsService contracts.ReceiptsService,
 ) Service {
+	ticketsRepo := db.NewTicketRepository(dbConn)
+
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
 	var redisPublisher watermillMessage.Publisher
@@ -60,7 +62,7 @@ func New(
 		panic(err)
 	}
 
-	events.AddEventProcessorHandlers(eventProcessor, receiptsService, spreadsheetsService)
+	events.AddEventProcessorHandlers(eventProcessor, receiptsService, spreadsheetsService, ticketsRepo)
 
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,
