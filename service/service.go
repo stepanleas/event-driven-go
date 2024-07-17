@@ -63,7 +63,7 @@ func New(
 		panic(err)
 	}
 
-	events.AddEventProcessorHandlers(eventProcessor, receiptsService, spreadsheetsService, ticketsRepo, filesAPI)
+	events.AddEventProcessorHandlers(eventProcessor, eventBus, receiptsService, spreadsheetsService, ticketsRepo, filesAPI)
 
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,

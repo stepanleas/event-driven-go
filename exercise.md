@@ -1,4 +1,4 @@
-# Printing Tickets
+# Printing Tickets - emit event
 
 
 <div class="alert alert-dismissible bg-info text-white d-flex flex-column flex-sm-row p-7 mb-10">
@@ -8,14 +8,10 @@
 		</h3>
         <span>
 
-Our operations team is now generating and printing tickets by hand.
-This was a good strategy to roll out the product quickly, but it's not a good long-term solution because
-they already struggle with the number of tickets they need to print.
+One team in our company wants to integrate with the printing system to automate the printing of tickets.
+They want to integrate with our system by subscribing to the `TicketPrinted` event.
 
-Let's help our ops team by generating tickets for them!
-
-We will use the `files` service to store the tickets.
-The `files` will be available via the `gateway`, like other services.
+They need information about the ticket ID and file name.
 
 </span>
 	</div>
@@ -25,28 +21,17 @@ The `files` will be available via the `gateway`, like other services.
 
 File: `project/main.go`
 
-Implement an event handler that will be triggered by the `TicketBookingConfirmed` event.
+Use the Event Bus to emit a `TicketPrinted` event after the ticket is printed.
+You need to inject the Event Bus to your handler.
 
-It should store ticket content with the API client `*clients.Clients` from the `github.com/ThreeDotsLabs/go-event-driven/common/clients`
-(`Files.PutFilesFileIdContentWithTextBodyWithResponse(ctx, fileID, fileContent)` method).
-
-The file name should have the format `[Ticket ID]-ticket.html`.
-The content doesn't matter, it's just important that it contain the ticket ID, price, and amount.
-
-It's not necessary to do anything on `TicketBookingCanceled` — the volume of this is low, and it's not a problem for ops to handle it.
-
-Do you remember the discussion of eventual consistency? The client will return 409 when the file already exists.
-We will use a similar strategy as in the previous module. If this error happens, you need to handle it gracefully.
-It's worth adding a log in that situation, so you will know what happened in case any issues arise.
+The emitted event should have the following format:
 
 ```go
-import (
-	"github.com/ThreeDotsLabs/go-event-driven/common/log"
-)
+type TicketPrinted struct {
+	Header EventHeader `json:"header"`
 
-if resp.StatusCode() == http.StatusConflict {
-	log.FromContext(ctx).Infof("file %s already exists", fileID)
-	return nil
+	TicketID string `json:"ticket_id"`
+	FileName string `json:"file_name"`
 }
 ```
 
@@ -61,10 +46,19 @@ if resp.StatusCode() == http.StatusConflict {
 		</h3>
         <span>
 
-Note that we can add this functionality without changing any existing code.
-In real life, it could be even implemented by a different team that has access to the events.
+If you feel tempted to add the entire ticket model to the event, don't do it by default!
+
+Remember that events become a contract between systems.
+If you add an entire ticket model to the event, you will need to always keep adding this data to the event.
+
+It's especially painful if you are refactoring in the future, and you want to split services or modules to smaller ones.
+You may no longer have access to all the data that you emitted in the event in the past.
+
+As an alternative, you can deprecate the old event and introduce a new one. 
+However, it's always painful (as it may require a cross-team initiative).
+
+[YAGNI!](https://en.wikipedia.org/wiki/You_aren%27t_gonna_need_it)
 
 </span>
 	</div>
 	</div>
-

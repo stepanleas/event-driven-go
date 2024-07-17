@@ -7,14 +7,16 @@ import (
 	"tickets/message/contracts"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
 
 type PrintTicketHandler struct {
 	filesAPI contracts.FilesAPI
+	eventBus *cqrs.EventBus
 }
 
-func NewPrintTicketHandler(filesAPI contracts.FilesAPI) PrintTicketHandler {
-	return PrintTicketHandler{filesAPI: filesAPI}
+func NewPrintTicketHandler(filesAPI contracts.FilesAPI, eventBus *cqrs.EventBus) PrintTicketHandler {
+	return PrintTicketHandler{filesAPI: filesAPI, eventBus: eventBus}
 }
 
 func (h PrintTicketHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed) error {
@@ -37,6 +39,15 @@ func (h PrintTicketHandler) Handle(ctx context.Context, event *entities.TicketBo
 	err := h.filesAPI.UploadFile(ctx, ticketFile, ticketHTML)
 	if err != nil {
 		return fmt.Errorf("failed to upload ticket file: %w", err)
+	}
+
+	err = h.eventBus.Publish(ctx, entities.TicketPrinted{
+		Header:   entities.NewEventHeader(),
+		TicketID: event.TicketID,
+		FileName: ticketFile,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to publish TicketPrinted event: %w", err)
 	}
 
 	return nil
