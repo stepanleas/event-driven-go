@@ -1,13 +1,34 @@
-# Handling re-delivery in your project
+# Testing idempotency
+
+Being sure that our handlers and repositories are idempotent is crucial to making our system work correctly.
+
+What's the best strategy to follow?
+
+### Testing idempotency at the repository level
+
+You could test our handlers' idempotency at the component test level, but this would be pretty time/resource-consuming.
+
+It's much better to test it at the repository level. This gives you the same guarantee, and it's much faster to execute and easier to write.
+It also creates a faster feedback loop when you're developing the functionality.
+
+### Duplicator middleware
+
+There is also another way to test idempotency on the level of the entire application: [duplicator middleware](https://watermill.io/docs/middlewares/#duplicator).
+
+It works in a very simple way: it processes all your messages twice.
+You can enable this middleware for your tests and check if your application still works correctly.
+
+You can even go one step further and enable it in real environments (even production) to be sure that your application is working correctly.
+Keep in mind that this may be expensive for bigger systems in terms of infrastructure costs.
+
+Repository-level tests are definitely the cheaper and easier way to debug!
+This is what we want for our application.
 
 ## Exercise
 
 File: `project/main.go`
 
-There is a chance that you already implemented the storing of tickets in the `tickets` table in an idempotent way.
-If you didn't, this is a good time to do that.
-
-To support deduplication for adding tickets, you need to add `ON CONFLICT DO NOTHING` at the end of the `INSERT` query.
+It's time to test if your repository is idempotent.
 
 
 <div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
@@ -20,12 +41,75 @@ To support deduplication for adding tickets, you need to add `ON CONFLICT DO NOT
 		</h3>
         <span>
 
-If you defined the primary key properly in your database schema, your API will return just one ticket for the same `ticket_id`.
-But without `ON CONFLICT DO NOTHING`, the message won't be acknowledged, and it will be redelivered forever.
+If you just implemented the logic to add tickets to the database, in your handler, it may be good to refactor it to the repository pattern.
+This will make your code more testable and easier to maintain.
 
-You should not allow that to happen because it will make your system much harder to debug.
-We will cover this in more depth in the observability module.
+If you need inspiration, you can check out [our article about the repository pattern in Go](https://threedots.tech/post/repository-pattern-in-go/).
 
 </span>
 	</div>
 	</div>
+
+Unfortunately, we are not able to guess where your repository code/tests are located.
+**Because of that, for sake of this exercise, you need to put your repository tests in the `./db/` directory.**
+
+Your code is a blackbox for us, so we can't really assert that you tested everything. 
+In the end, we will just check that your tests pass.
+
+Most of the work that you need to do is to set up the tests.
+After that, **you need to call your repository function twice and assert that the second call succeeded and didn't change anything.**
+The ticket should be stored only once. 
+
+### Tips
+
+Here are a couple tips that may help you with test implementation.
+
+#### Running locally
+
+If you want, you can run your tests locally. In one terminal you need to run:
+
+```bash
+docker-compose up --pull
+```
+
+And in another one:
+
+```bash
+POSTGRES_URL=postgres://user:password@localhost:5432/db?sslmode=disable go test ./db/ -v
+```
+
+#### It's good to write tests so that they are not dependent on cleanup
+
+The most reliable integration tests should not depend on cleanup.
+The cleanup may fail because the tests are killed or for some other reason, so 
+it's good to write tests that are not dependent on them.
+
+Some time ago, we wrote an article that covers this: [4 principles of high-quality database integration tests](https://threedots.tech/post/database-integration-testing/).
+
+#### Write a helper to get a db singleton
+
+It's good to write a helper to get a db singleton.
+If you have multiple tests, you can be sure that you're not opening the connection for each test.
+
+Feel free to use this one:
+
+```go
+var db *sqlx.DB
+var getDbOnce sync.Once
+
+func getDb() *sqlx.DB {
+	getDbOnce.Do(func() {
+		var err error
+		db, err = sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
+		if err != nil {
+			panic(err)
+		}
+	})
+	return db
+}
+```
+
+#### Don't forget to call function that does schema initialization
+
+You need your schema for tests to work properly. You can just call the needed function before each test or use [`TestMain`](https://pkg.go.dev/testing#hdr-Main).
+
