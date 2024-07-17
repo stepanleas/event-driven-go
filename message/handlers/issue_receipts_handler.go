@@ -22,8 +22,9 @@ func (h IssueReceiptsHandler) Handle(ctx context.Context, event *entities.Ticket
 	log.FromContext(ctx).Info("Issuing receipt")
 
 	request := entities.IssueReceiptRequest{
-		TicketID: event.TicketID,
-		Price:    event.Price,
+		IdempotencyKey: event.Header.IdempotencyKey,
+		TicketID:       event.TicketID,
+		Price:          event.Price,
 	}
 
 	_, err := h.receiptsClient.IssueReceipt(ctx, request)
