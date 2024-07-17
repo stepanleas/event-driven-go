@@ -27,11 +27,25 @@ func (t TicketRepository) Add(ctx context.Context, ticket entities.Ticket) error
 		INSERT INTO 
     		tickets (ticket_id, price_amount, price_currency, customer_email) 
 		VALUES 
-		    (:ticket_id, :price.amount, :price.currency, :customer_email)`,
+		    (:ticket_id, :price.amount, :price.currency, :customer_email)
+		`,
 		ticket,
 	)
 	if err != nil {
 		return fmt.Errorf("could not save ticket: %w", err)
+	}
+
+	return nil
+}
+
+func (t TicketRepository) Remove(ctx context.Context, ticketID string) error {
+	_, err := t.db.ExecContext(
+		ctx,
+		`DELETE FROM TICKETS WHERE ticket_id = $1`,
+		ticketID,
+	)
+	if err != nil {
+		return fmt.Errorf("could not delete ticket: %w", err)
 	}
 
 	return nil
