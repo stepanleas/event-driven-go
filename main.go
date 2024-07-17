@@ -23,6 +23,7 @@ func main() {
 		os.Getenv("GATEWAY_ADDR"),
 		func(ctx context.Context, req *http.Request) error {
 			req.Header.Set("Correlation-ID", log.CorrelationIDFromContext(ctx))
+
 			return nil
 		},
 	)
@@ -41,12 +42,14 @@ func main() {
 
 	spreadsheetsService := api.NewSpreadsheetsAPIClient(apiClients)
 	receiptsService := api.NewReceiptsServiceClient(apiClients)
+	filesAPI := api.NewFilesApiClient(apiClients)
 
 	err = service.New(
 		conn,
 		redisClient,
 		spreadsheetsService,
 		receiptsService,
+		filesAPI,
 	).Run(ctx)
 	if err != nil {
 		panic(err)

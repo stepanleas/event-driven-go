@@ -37,6 +37,7 @@ func New(
 	redisClient *redis.Client,
 	spreadsheetsService contracts.SpreadsheetsAPI,
 	receiptsService contracts.ReceiptsService,
+	filesAPI contracts.FilesAPI,
 ) Service {
 	ticketsRepo := db.NewTicketRepository(dbConn)
 
@@ -62,7 +63,7 @@ func New(
 		panic(err)
 	}
 
-	events.AddEventProcessorHandlers(eventProcessor, receiptsService, spreadsheetsService, ticketsRepo)
+	events.AddEventProcessorHandlers(eventProcessor, receiptsService, spreadsheetsService, ticketsRepo, filesAPI)
 
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,

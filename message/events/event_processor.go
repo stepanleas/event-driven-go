@@ -12,6 +12,7 @@ func AddEventProcessorHandlers(
 	receiptsService contracts.ReceiptsService,
 	spreadsheetsService contracts.SpreadsheetsAPI,
 	ticketRepo contracts.TicketRepository,
+	filesAPI contracts.FilesAPI,
 ) {
 	ep.AddHandlers(
 		cqrs.NewEventHandler(
@@ -33,6 +34,10 @@ func AddEventProcessorHandlers(
 		cqrs.NewEventHandler(
 			"RemoveCanceledTicket",
 			handlers.NewRemoveCanceledTicketHandler(ticketRepo).Handle,
+		),
+		cqrs.NewEventHandler(
+			"StoreTicketContent",
+			handlers.NewPrintTicketHandler(filesAPI).Handle,
 		),
 	)
 }
