@@ -14,6 +14,7 @@ type ReceiptsService interface {
 }
 
 type TicketRepository interface {
+	FindAll(ctx context.Context) ([]entities.Ticket, error)
 	Add(ctx context.Context, ticket entities.Ticket) error
 	Remove(ctx context.Context, ticketID string) error
 }

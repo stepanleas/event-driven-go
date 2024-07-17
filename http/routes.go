@@ -9,10 +9,15 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func NewHttpRouter(eventBus *cqrs.EventBus, spreadsheetsAPIClient contracts.SpreadsheetsAPI) *echo.Echo {
-	ctrl := NewTicketController(eventBus)
+func NewHttpRouter(
+	eventBus *cqrs.EventBus,
+	spreadsheetsAPIClient contracts.SpreadsheetsAPI,
+	repo contracts.TicketRepository,
+) *echo.Echo {
+	ctrl := NewTicketController(eventBus, repo)
 
 	e := libHttp.NewEcho()
+	e.GET("/tickets", ctrl.FindAll)
 	e.GET("/health", ctrl.HealthCheck)
 	e.POST("/tickets-status", ctrl.Status)
 

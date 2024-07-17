@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"tickets/entities"
+	"tickets/message/contracts"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"github.com/labstack/echo/v4"
@@ -22,14 +23,24 @@ type ticketStatus struct {
 
 type TicketController struct {
 	eventBus *cqrs.EventBus
+	repo     contracts.TicketRepository
 }
 
-func NewTicketController(eventBus *cqrs.EventBus) TicketController {
-	return TicketController{eventBus: eventBus}
+func NewTicketController(eventBus *cqrs.EventBus, repo contracts.TicketRepository) TicketController {
+	return TicketController{eventBus: eventBus, repo: repo}
 }
 
 func (ctrl TicketController) HealthCheck(c echo.Context) error {
 	return c.String(http.StatusOK, "ok")
+}
+
+func (ctrl TicketController) FindAll(c echo.Context) error {
+	tickets, err := ctrl.repo.FindAll(c.Request().Context())
+	if err != nil {
+		return fmt.Errorf("failed to find tickets: %w", err)
+	}
+
+	return c.JSON(http.StatusOK, tickets)
 }
 
 func (ctrl TicketController) Status(c echo.Context) error {
