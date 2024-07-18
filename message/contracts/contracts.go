@@ -3,6 +3,8 @@ package contracts
 import (
 	"context"
 	"tickets/entities"
+
+	"github.com/google/uuid"
 )
 
 type SpreadsheetsAPI interface {
@@ -17,6 +19,12 @@ type TicketRepository interface {
 	FindAll(ctx context.Context) ([]entities.Ticket, error)
 	Add(ctx context.Context, ticket entities.Ticket) error
 	Remove(ctx context.Context, ticketID string) error
+}
+
+type ShowRepository interface {
+	Add(ctx context.Context, show entities.Show) error
+	FindAll(ctx context.Context) ([]entities.Show, error)
+	FindByID(ctx context.Context, showID uuid.UUID) (entities.Show, error)
 }
 
 type FilesAPI interface {
