@@ -27,6 +27,10 @@ type ShowRepository interface {
 	FindByID(ctx context.Context, showID uuid.UUID) (entities.Show, error)
 }
 
+type BookingRepository interface {
+	Add(ctx context.Context, booking entities.Booking) error
+}
+
 type FilesAPI interface {
 	UploadFile(ctx context.Context, fileID string, fileContent string) error
 }
