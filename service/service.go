@@ -39,6 +39,7 @@ func New(
 	spreadsheetsService contracts.SpreadsheetsAPI,
 	receiptsService contracts.ReceiptsService,
 	filesAPI contracts.FilesAPI,
+	deadNationAPI contracts.DeadNationApi,
 ) Service {
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showRepo := db.NewShowRepository(dbConn)
@@ -69,7 +70,16 @@ func New(
 		panic(err)
 	}
 
-	events.AddEventProcessorHandlers(eventProcessor, eventBus, receiptsService, spreadsheetsService, ticketsRepo, filesAPI)
+	events.AddEventProcessorHandlers(
+		eventProcessor,
+		eventBus,
+		receiptsService,
+		spreadsheetsService,
+		ticketsRepo,
+		showRepo,
+		filesAPI,
+		deadNationAPI,
+	)
 
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,

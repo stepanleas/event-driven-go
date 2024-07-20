@@ -37,6 +37,7 @@ func TestComponent(t *testing.T) {
 	spreadsheetsService := &api.SpreadsheetsAPIClientMock{}
 	receiptsService := &api.ReceiptsServiceMock{}
 	filesAPI := &api.FilesApiMock{}
+	deadNationAPI := &api.DeadNationMock{}
 
 	go func() {
 		svc := service.New(
@@ -45,6 +46,7 @@ func TestComponent(t *testing.T) {
 			spreadsheetsService,
 			receiptsService,
 			filesAPI,
+			deadNationAPI,
 		)
 		assert.NoError(t, svc.Run(ctx))
 	}()
@@ -71,6 +73,12 @@ func TestComponent(t *testing.T) {
 
 	assertReceiptForTicketIssued(t, receiptsService, ticket)
 	assertTicketPrinted(t, filesAPI, ticket)
+	assertBookTicketDeadNation(t, deadNationAPI, entities.DeadNationBooking{
+		BookingID:         uuid.New(),
+		CustomerEmail:     "mdasdsa@gmail.com",
+		DeadNationEventID: uuid.New(),
+		NumberOfTickets:   5,
+	})
 	assertRowToSheetAdded(t, spreadsheetsService, ticket, "tickets-to-print")
 	assertTicketStoredInRepository(t, db, ticket)
 
@@ -219,6 +227,18 @@ func assertTicketPrinted(t *testing.T, filesAPI *api.FilesApiMock, ticket Ticket
 			}
 
 			assert.Contains(t, content, ticket.TicketID)
+		},
+		10*time.Second,
+		100*time.Millisecond,
+	)
+}
+
+func assertBookTicketDeadNation(t *testing.T, deadNationAPI *api.DeadNationMock, booking entities.DeadNationBooking) bool {
+	return assert.EventuallyWithT(
+		t,
+		func(t *assert.CollectT) {
+			err := deadNationAPI.BookInDeadNation(context.Background(), booking)
+			assert.NoError(t, err)
 		},
 		10*time.Second,
 		100*time.Millisecond,

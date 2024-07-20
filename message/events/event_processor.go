@@ -13,7 +13,9 @@ func AddEventProcessorHandlers(
 	receiptsService contracts.ReceiptsService,
 	spreadsheetsService contracts.SpreadsheetsAPI,
 	ticketRepo contracts.TicketRepository,
+	showRepo contracts.ShowRepository,
 	filesAPI contracts.FilesAPI,
+	deadNationAPI contracts.DeadNationApi,
 ) {
 	ep.AddHandlers(
 		cqrs.NewEventHandler(
@@ -39,6 +41,10 @@ func AddEventProcessorHandlers(
 		cqrs.NewEventHandler(
 			"PrintTicketHandler",
 			handlers.NewPrintTicketHandler(filesAPI, eventBus).Handle,
+		),
+		cqrs.NewEventHandler(
+			"BookPlaceInDeadNation",
+			handlers.NewBookingMadeHandler(deadNationAPI, showRepo).Handle,
 		),
 	)
 }

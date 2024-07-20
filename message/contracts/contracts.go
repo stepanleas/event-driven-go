@@ -34,3 +34,7 @@ type BookingRepository interface {
 type FilesAPI interface {
 	UploadFile(ctx context.Context, fileID string, fileContent string) error
 }
+
+type DeadNationApi interface {
+	BookInDeadNation(ctx context.Context, booking entities.DeadNationBooking) error
+}

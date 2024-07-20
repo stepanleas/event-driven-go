@@ -66,6 +66,7 @@ type BookingMade struct {
 
 	BookingID uuid.UUID `json:"booking_id"`
 
-	CustomerEmail string    `json:"customer_email"`
-	ShowId        uuid.UUID `json:"show_id"`
+	CustomerEmail     string    `json:"customer_email"`
+	ShowId            uuid.UUID `json:"show_id"`
+	DeadNationEventID uuid.UUID `json:"dead_nation_id"`
 }
