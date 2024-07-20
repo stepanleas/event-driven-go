@@ -2,16 +2,17 @@ package message
 
 import (
 	"tickets/message/contracts"
+	"tickets/message/events/outbox"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/redis/go-redis/v9"
 )
 
 func NewWatermillRouter(
 	receiptsService contracts.ReceiptsService,
 	spreadsheetsService contracts.SpreadsheetsAPI,
-	rdb *redis.Client,
+	postgresSubscriber message.Subscriber,
+	publisher message.Publisher,
 	logger watermill.LoggerAdapter,
 ) *message.Router {
 	router, err := message.NewRouter(message.RouterConfig{}, logger)
@@ -24,6 +25,8 @@ func NewWatermillRouter(
 		CorrelationIDMiddleware,
 		LoggingMiddleware,
 	)
+
+	outbox.AddForwarderHandler(postgresSubscriber, publisher, router, logger)
 
 	return router
 }

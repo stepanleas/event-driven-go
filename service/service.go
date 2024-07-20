@@ -9,6 +9,7 @@ import (
 	"tickets/message"
 	"tickets/message/contracts"
 	"tickets/message/events"
+	"tickets/message/events/outbox"
 
 	_ "github.com/lib/pq"
 
@@ -49,10 +50,13 @@ func New(
 	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
 
+	postgresSub := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
+
 	watermillRouter := message.NewWatermillRouter(
 		receiptsService,
 		spreadsheetsService,
-		redisClient,
+		postgresSub,
+		redisPublisher,
 		watermillLogger,
 	)
 
