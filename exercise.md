@@ -1,35 +1,36 @@
-# Calling Dead Nation
+# Add ticket limits
 
-Remember that our goal is to proxy requests to Dead Nation?
-To replace the endpoint in production, we need to call the Dead Nation API.
+The final functionality that we need to implement before using our new endpoint in production is imposing limits on how many tickets we can sell.
+We have this information in the `shows` table, so now we just need to enforce it.
+
+
+<div class="alert alert-dismissible bg-info text-white d-flex flex-column flex-sm-row p-7 mb-10">
+    <div class="d-flex flex-column">
+        <h3 class="mb-5 text-white">
+			Background	
+		</h3>
+        <span>
+
+If shows are more popular, our API may receive up to 20 concurrent requests to book tickets for the same show.
+We will verify that our solution can handle that without overbooking.
+
+</span>
+	</div>
+	</div>
 
 ## Exercise
 
 File: `project/main.go`
 
-Use the `BookingMade` event that you emitted in the [previous](/trainings/go-event-driven/exercise/148ed9cd-29d4-4132-a57d-d1499e298897) exercise.
+Enforce the limit of available tickets in the `POST /book-tickets` endpoint.
+Our endpoint should return `http.StatusBadRequest` if there are not enough tickets available.
 
-Clients from `github.com/ThreeDotsLabs/go-event-driven/common/clients` support calling the Dead Nation API.
+It's fully up to you how you implement this logic.
+The simplest approach may be doing it inside the repository method used to store the booking:
+You can just simply get the number of available tickets and already booked tickets and compare them.
 
-```go
-resp, err := h.deadNationClient.PostTicketBookingWithResponse(
-    ctx,
-    dead_nation.PostTicketBookingRequest{
-        CustomerAddress: booking.CustomerEmail,
-        EventId:         booking.DeadNationEventID,
-        NumberOfTickets: booking.NumberOfTickets,
-        BookingId:       booking.BookingID,
-    },
-)
-```
-
-
-As usually occurs, names from external APIs do not usually correspond 1:1 to our codebase.
-For example: `CustomerAddress` is `CustomerEmail` in our codebase.
-
-**Warning:** `EventId` should be the `dead_nation_id` from the store show request [previous exercise](/trainings/go-event-driven/exercise/d5291467-1e0b-442b-ac2e-e79141e96ff9).
-**You should get this value from the database.**
-This is intentionally a different name: EventID is a term used by Dead Nation, but we prefer name `ShowID` (so it's not confusing with our events in Pub/Sub).
+Make sure that you are doing this within the same transaction as the booking is stored in the database.
+You should also use the `sql.LevelSerializable` isolation level to make sure that you are not overbooking.
 
 
 <div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
@@ -42,13 +43,16 @@ This is intentionally a different name: EventID is a term used by Dead Nation, b
 		</h3>
         <span>
 
-Repositories or clients are usually good places for making the translation from external language to internal.
-Thanks to that, we can keep language inside our application free from external influences.
+You can read more about PostgreSQL serializable transactions [in official documentation](https://www.postgresql.org/docs/13/transaction-iso.html#XACT-SERIALIZABLE)
+and [this article](https://mkdev.me/posts/transaction-isolation-levels-with-postgresql-as-an-example).
 
 </span>
 	</div>
 	</div>
 
-If everythng went fine, Dead Nation should call your `POST /ticket-status` endpoint.
+We will not check your component tests, but we recommend implementing them. 
+This it's a critical functionality, so it's good to have some tests to make sure that it works as expected.
 
+Please try to implement tests yourself. In example solution you can see how we made it.
 
+You can check the [component testing](/trainings/go-event-driven/exercise/56368c8e-1998-4e02-9a7d-b30b8a4af14f) exercise to remind yourself of how to run tests locally.
