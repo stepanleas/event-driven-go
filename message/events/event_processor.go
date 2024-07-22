@@ -2,7 +2,7 @@ package events
 
 import (
 	"tickets/message/contracts"
-	"tickets/message/handlers"
+	"tickets/message/event_handlers"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
@@ -19,32 +19,32 @@ func AddEventProcessorHandlers(
 ) {
 	ep.AddHandlers(
 		cqrs.NewEventHandler(
-			"IssueReceipt",
-			handlers.NewIssueReceiptsHandler(receiptsService).Handle,
+			"IssueReceiptHandler",
+			event_handlers.NewIssueReceiptsHandler(receiptsService).Handle,
 		),
 		cqrs.NewEventHandler(
-			"AppendToTracker",
-			handlers.NewAppendToTrackerHandler(spreadsheetsService).Handle,
+			"AppendToTrackerHandler",
+			event_handlers.NewAppendToTrackerHandler(spreadsheetsService).Handle,
 		),
 		cqrs.NewEventHandler(
-			"RefundTicket",
-			handlers.NewTicketsToRefundHandler(spreadsheetsService).Handle,
+			"RefundTicketHandler",
+			event_handlers.NewTicketsToRefundHandler(spreadsheetsService).Handle,
 		),
 		cqrs.NewEventHandler(
-			"StoreTicket",
-			handlers.NewStoreTicketHandler(ticketRepo).Handle,
+			"StoreTicketHandler",
+			event_handlers.NewStoreTicketHandler(ticketRepo).Handle,
 		),
 		cqrs.NewEventHandler(
-			"RemoveCanceledTicket",
-			handlers.NewRemoveCanceledTicketHandler(ticketRepo).Handle,
+			"RemoveCanceledTicketHandler",
+			event_handlers.NewRemoveCanceledTicketHandler(ticketRepo).Handle,
 		),
 		cqrs.NewEventHandler(
 			"PrintTicketHandler",
-			handlers.NewPrintTicketHandler(filesAPI, eventBus).Handle,
+			event_handlers.NewPrintTicketHandler(filesAPI, eventBus).Handle,
 		),
 		cqrs.NewEventHandler(
-			"BookPlaceInDeadNation",
-			handlers.NewBookingMadeHandler(deadNationAPI, showRepo).Handle,
+			"BookPlaceInDeadNationHandler",
+			event_handlers.NewBookingMadeHandler(deadNationAPI, showRepo).Handle,
 		),
 	)
 }

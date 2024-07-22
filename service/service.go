@@ -7,6 +7,7 @@ import (
 	"tickets/db"
 	ticketsHttp "tickets/http"
 	"tickets/message"
+	"tickets/message/commands"
 	"tickets/message/contracts"
 	"tickets/message/events"
 	"tickets/message/events/outbox"
@@ -81,8 +82,11 @@ func New(
 		deadNationAPI,
 	)
 
+	commandBus := commands.NewCommandBus(redisPublisher)
+
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,
+		commandBus,
 		spreadsheetsService,
 		ticketsRepo,
 		showRepo,

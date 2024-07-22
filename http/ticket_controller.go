@@ -7,6 +7,7 @@ import (
 	"tickets/message/contracts"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -22,16 +23,36 @@ type ticketStatus struct {
 }
 
 type TicketController struct {
-	eventBus *cqrs.EventBus
-	repo     contracts.TicketRepository
+	eventBus   *cqrs.EventBus
+	commandBus *cqrs.CommandBus
+	repo       contracts.TicketRepository
 }
 
-func NewTicketController(eventBus *cqrs.EventBus, repo contracts.TicketRepository) TicketController {
-	return TicketController{eventBus: eventBus, repo: repo}
+func NewTicketController(eventBus *cqrs.EventBus, commandBus *cqrs.CommandBus, repo contracts.TicketRepository) TicketController {
+	return TicketController{
+		eventBus:   eventBus,
+		commandBus: commandBus,
+		repo:       repo,
+	}
 }
 
 func (ctrl TicketController) HealthCheck(c echo.Context) error {
 	return c.String(http.StatusOK, "ok")
+}
+
+func (ctrl TicketController) Refund(c echo.Context) error {
+	ticketID := c.Param("ticket_id")
+
+	command := entities.RefundTicket{
+		Header:   entities.NewEventHeaderWithIdempotencyKey(uuid.NewString()),
+		TicketID: ticketID,
+	}
+
+	if err := ctrl.commandBus.Send(c.Request().Context(), command); err != nil {
+		return fmt.Errorf("failed to send RefundTicket command: %w", err)
+	}
+
+	return c.NoContent(http.StatusAccepted)
 }
 
 func (ctrl TicketController) FindAll(c echo.Context) error {
