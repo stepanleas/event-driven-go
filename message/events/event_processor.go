@@ -19,31 +19,31 @@ func AddEventProcessorHandlers(
 ) {
 	ep.AddHandlers(
 		cqrs.NewEventHandler(
-			"IssueReceiptHandler",
+			"IssueReceipt",
 			event_handlers.NewIssueReceiptsHandler(receiptsService).Handle,
 		),
 		cqrs.NewEventHandler(
-			"AppendToTrackerHandler",
+			"AppendToTracker",
 			event_handlers.NewAppendToTrackerHandler(spreadsheetsService).Handle,
 		),
 		cqrs.NewEventHandler(
-			"RefundTicketHandler",
+			"TicketRefundToSheet",
 			event_handlers.NewTicketsToRefundHandler(spreadsheetsService).Handle,
 		),
 		cqrs.NewEventHandler(
-			"StoreTicketHandler",
+			"StoreTicket",
 			event_handlers.NewStoreTicketHandler(ticketRepo).Handle,
 		),
 		cqrs.NewEventHandler(
-			"RemoveCanceledTicketHandler",
+			"RemoveCanceledTicket",
 			event_handlers.NewRemoveCanceledTicketHandler(ticketRepo).Handle,
 		),
 		cqrs.NewEventHandler(
-			"PrintTicketHandler",
+			"PrintTicket",
 			event_handlers.NewPrintTicketHandler(filesAPI, eventBus).Handle,
 		),
 		cqrs.NewEventHandler(
-			"BookPlaceInDeadNationHandler",
+			"BookPlaceInDeadNation",
 			event_handlers.NewBookingMadeHandler(deadNationAPI, showRepo).Handle,
 		),
 	)

@@ -8,18 +8,29 @@ import (
 )
 
 type ReceiptsServiceMock struct {
-	mock           sync.Mutex
-	IssuedReceipts []entities.IssueReceiptRequest
+	mock sync.Mutex
+
+	IssuedReceipts map[string]entities.IssueReceiptRequest
+	VoidedReceipts []entities.VoidReceipt
 }
 
-func (m *ReceiptsServiceMock) IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error) {
-	m.mock.Lock()
-	defer m.mock.Unlock()
+func (c *ReceiptsServiceMock) IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error) {
+	c.mock.Lock()
+	defer c.mock.Unlock()
 
-	m.IssuedReceipts = append(m.IssuedReceipts, request)
+	c.IssuedReceipts[request.TicketID] = request
 
 	return entities.IssueReceiptResponse{
-		ReceiptNumber: "123",
+		ReceiptNumber: "mocked-receipt-number",
 		IssuedAt:      time.Now(),
 	}, nil
+}
+
+func (c *ReceiptsServiceMock) VoidReceipt(ctx context.Context, request entities.VoidReceipt) error {
+	c.mock.Lock()
+	defer c.mock.Unlock()
+
+	c.VoidedReceipts = append(c.VoidedReceipts, request)
+
+	return nil
 }

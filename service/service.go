@@ -7,6 +7,7 @@ import (
 	"tickets/db"
 	ticketsHttp "tickets/http"
 	"tickets/message"
+	"tickets/message/command_handlers/contract"
 	"tickets/message/commands"
 	"tickets/message/contracts"
 	"tickets/message/events"
@@ -34,13 +35,19 @@ type Service struct {
 	echoRouter      *echo.Echo
 }
 
+type ReceiptService interface {
+	contracts.ReceiptsService
+	contract.ReceiptsService
+}
+
 func New(
 	dbConn *sqlx.DB,
 	redisClient *redis.Client,
 	spreadsheetsService contracts.SpreadsheetsAPI,
-	receiptsService contracts.ReceiptsService,
+	receiptsService ReceiptService,
 	filesAPI contracts.FilesAPI,
 	deadNationAPI contracts.DeadNationApi,
+	paymentsService contract.PaymentsService,
 ) Service {
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showRepo := db.NewShowRepository(dbConn)
@@ -83,6 +90,15 @@ func New(
 	)
 
 	commandBus := commands.NewCommandBus(redisPublisher)
+	commandProcessor, err := cqrs.NewCommandProcessorWithConfig(
+		watermillRouter,
+		commands.NewCommandProcessorConfig(redisClient, watermillLogger),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	commands.AddCommandProcessorHandlers(commandProcessor, eventBus, receiptsService, paymentsService)
 
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,
