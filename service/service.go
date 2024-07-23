@@ -5,6 +5,7 @@ import (
 	"fmt"
 	stdHTTP "net/http"
 	"tickets/db"
+	"tickets/db/read_model"
 	ticketsHttp "tickets/http"
 	"tickets/message"
 	"tickets/message/command_handlers/contract"
@@ -52,6 +53,7 @@ func New(
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showRepo := db.NewShowRepository(dbConn)
 	bookingRepo := db.NewBookingRepository(dbConn)
+	opsReadModel := read_model.NewOpsBookingReadModel(dbConn)
 
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
@@ -87,6 +89,7 @@ func New(
 		showRepo,
 		filesAPI,
 		deadNationAPI,
+		opsReadModel,
 	)
 
 	commandBus := commands.NewCommandBus(redisPublisher)

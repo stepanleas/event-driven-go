@@ -1,6 +1,7 @@
 package events
 
 import (
+	"tickets/db/read_model"
 	"tickets/message/contracts"
 	"tickets/message/event_handlers"
 
@@ -16,6 +17,7 @@ func AddEventProcessorHandlers(
 	showRepo contracts.ShowRepository,
 	filesAPI contracts.FilesAPI,
 	deadNationAPI contracts.DeadNationApi,
+	opsReadModel read_model.OpsBookingReadModel,
 ) {
 	ep.AddHandlers(
 		cqrs.NewEventHandler(
@@ -45,6 +47,27 @@ func AddEventProcessorHandlers(
 		cqrs.NewEventHandler(
 			"BookPlaceInDeadNation",
 			event_handlers.NewBookingMadeHandler(deadNationAPI, showRepo).Handle,
+		),
+		// read model
+		cqrs.NewEventHandler(
+			"ops_read_model.OnBookingMade",
+			opsReadModel.OnBookingMade,
+		),
+		cqrs.NewEventHandler(
+			"ops_read_model.OnTicketReceiptIssued",
+			opsReadModel.OnTicketReceiptIssued,
+		),
+		cqrs.NewEventHandler(
+			"ops_read_model.OnTicketBookingConfirmed",
+			opsReadModel.OnTicketBookingConfirmed,
+		),
+		cqrs.NewEventHandler(
+			"ops_read_model.OnTicketPrinted",
+			opsReadModel.OnTicketPrinted,
+		),
+		cqrs.NewEventHandler(
+			"ops_read_model.OnTicketRefunded",
+			opsReadModel.OnTicketRefunded,
 		),
 	)
 }

@@ -20,6 +20,7 @@ type ticketStatus struct {
 	Status        string         `json:"status"`
 	CustomerEmail string         `json:"customer_email"`
 	Price         entities.Money `json:"price"`
+	BookingID     string         `json:"booking_id"`
 }
 
 type TicketController struct {
@@ -83,6 +84,7 @@ func (ctrl TicketController) Status(c echo.Context) error {
 				TicketID:      ticket.TicketID,
 				CustomerEmail: ticket.CustomerEmail,
 				Price:         ticket.Price,
+				BookingID:     ticket.BookingID,
 			}
 
 			if err := ctrl.eventBus.Publish(c.Request().Context(), event); err != nil {
