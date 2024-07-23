@@ -8,14 +8,19 @@ import (
 	"tickets/message/contracts"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
 
 type IssueReceiptsHandler struct {
 	receiptsClient contracts.ReceiptsService
+	eventBus       *cqrs.EventBus
 }
 
-func NewIssueReceiptsHandler(receiptsClient contracts.ReceiptsService) IssueReceiptsHandler {
-	return IssueReceiptsHandler{receiptsClient: receiptsClient}
+func NewIssueReceiptsHandler(receiptsClient contracts.ReceiptsService, eventBus *cqrs.EventBus) IssueReceiptsHandler {
+	return IssueReceiptsHandler{
+		receiptsClient: receiptsClient,
+		eventBus:       eventBus,
+	}
 }
 
 func (h IssueReceiptsHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed) error {
@@ -27,10 +32,15 @@ func (h IssueReceiptsHandler) Handle(ctx context.Context, event *entities.Ticket
 		Price:          event.Price,
 	}
 
-	_, err := h.receiptsClient.IssueReceipt(ctx, request)
+	resp, err := h.receiptsClient.IssueReceipt(ctx, request)
 	if err != nil {
 		return fmt.Errorf("failed to issue receipt: %w", err)
 	}
 
-	return nil
+	return h.eventBus.Publish(ctx, entities.TicketReceiptIssued{
+		Header:        entities.NewEventHeaderWithIdempotencyKey(event.Header.IdempotencyKey),
+		TicketID:      event.TicketID,
+		ReceiptNumber: resp.ReceiptNumber,
+		IssuedAt:      resp.IssuedAt,
+	})
 }

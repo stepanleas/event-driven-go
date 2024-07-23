@@ -20,7 +20,7 @@ func AddEventProcessorHandlers(
 	ep.AddHandlers(
 		cqrs.NewEventHandler(
 			"IssueReceipt",
-			event_handlers.NewIssueReceiptsHandler(receiptsService).Handle,
+			event_handlers.NewIssueReceiptsHandler(receiptsService, eventBus).Handle,
 		),
 		cqrs.NewEventHandler(
 			"AppendToTracker",
