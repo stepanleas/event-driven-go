@@ -1,6 +1,8 @@
 package events
 
 import (
+	"fmt"
+
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
@@ -18,13 +20,13 @@ func NewEventProcessorConfig(rdb *redis.Client, logger watermill.LoggerAdapter) 
 			return redisstream.NewSubscriber(
 				redisstream.SubscriberConfig{
 					Client:        rdb,
-					ConsumerGroup: "svc-tickets." + params.HandlerName,
+					ConsumerGroup: "svc-tickets.events." + params.HandlerName,
 				},
 				logger,
 			)
 		},
 		GenerateSubscribeTopic: func(params cqrs.EventProcessorGenerateSubscribeTopicParams) (string, error) {
-			return params.EventName, nil
+			return fmt.Sprintf("events.%s", params.EventName), nil
 		},
 		Marshaler: marshaler,
 		Logger:    logger,

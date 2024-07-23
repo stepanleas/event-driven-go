@@ -1,33 +1,18 @@
-# Handling refunds
+# Rename topics
 
-It's time to handle the refund command.
-To handle refunds, we need to do two things:
+Currently, topic names are equal to command/event names.
 
-1. Void the receipt.
-2. Refund the payment.
+Even if the chance of conflict is not high, it would be good to separate them.
+This will also make more explicit whether the topic is a command or event topic.
 
-Clients from `github.com/ThreeDotsLabs/go-event-driven/common/clients` support both operations:
+## Exercise
 
-```go
-clients.Payments.PutRefundsWithResponse(ctx, payments.PaymentRefundRequest{
-    // we are using TicketID as a payment reference
-    PaymentReference: command.TicketID,
-    Reason:           "customer requested refund",
-    DeduplicationId:  &command.Header.IdempotencyKey,
-})
-```
+File: `project/main.go`
 
-and
+Change command and event topic names to the formats `events.{event_name}` and `commands.{command_name}`.
 
-```go
-clients.Receipts.PutVoidReceiptWithResponse(ctx, receipts.VoidReceiptRequest{
-    Reason:       "customer requested refund",
-    TicketId:     command.TicketID,
-    IdempotentId: &command.Header.IdempotencyKey,
-})
-```
-
-They are both idempotent, so we can handle them in a single command handler.
+We will check your solution by checking if `TicketBookingConfirmed` was emitted on `events.TicketBookingConfirmed`
+and `RefundTicket` on `commands.RefundTicket`.
 
 
 <div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
@@ -40,20 +25,15 @@ They are both idempotent, so we can handle them in a single command handler.
 		</h3>
         <span>
 
-Do you remember how idempotency works? If not, check the [idempotency key](/trainings/go-event-driven/exercise/d295e9e2-4cb4-49b2-bf73-28635208a78d) exercise.
+When you make such a change in production, you should be sure that you don't have any leftover messages on old topics.
+If you want to ensure that this doesn't happen, you can make the change in three steps:
 
-This API is called from the browser, so the idempotency key will not be set by the client.
-You should generate it by yourself in an HTTP handler.
+1. Add handlers for new topics while keeping topics for old names and then deploy.
+2. Change the command and event bus to publish to new topics and deploy.
+3. Remove the handlers for old topics and deploy.
+
+Thanks to this, you will be sure that you don't have any leftover messages on old topics.
 
 </span>
 	</div>
 	</div>
-
-## Exercise
-
-File: `project/main.go`
-
-Implement the refund command handler.
-
-For now, let's assume that commands will be handled eventually and won't spin forever.
-We will take care of that in the _observability and monitoring_ module.
