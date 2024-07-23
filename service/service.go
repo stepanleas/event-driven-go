@@ -110,6 +110,7 @@ func New(
 		ticketsRepo,
 		showRepo,
 		bookingRepo,
+		opsReadModel,
 	)
 
 	return Service{
