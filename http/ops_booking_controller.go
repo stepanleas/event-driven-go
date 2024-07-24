@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"tickets/db/read_model"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -17,7 +18,15 @@ func NewOpsBookingController(opsReadModel read_model.OpsBookingReadModel) OpsBoo
 }
 
 func (ctrl OpsBookingController) FindAll(c echo.Context) error {
-	reservations, err := ctrl.opsReadModel.AllReservations()
+	receiptIssueDate := c.QueryParam("receipt_issue_date")
+	if receiptIssueDate != "" {
+		_, err := time.Parse("2006-01-02", receiptIssueDate)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid receipt_issue_date format, expected RFC3339 date: ", err.Error())
+		}
+	}
+
+	reservations, err := ctrl.opsReadModel.AllReservations(receiptIssueDate)
 	if err != nil {
 		return fmt.Errorf("failed to find reservations: %w", err)
 	}
