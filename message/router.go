@@ -2,17 +2,21 @@ package message
 
 import (
 	"fmt"
+	"tickets/entities"
 	"tickets/message/contracts"
 	"tickets/message/events"
 	"tickets/message/events/outbox"
+	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/google/uuid"
 )
 
 func NewWatermillRouter(
 	receiptsService contracts.ReceiptsService,
 	spreadsheetsService contracts.SpreadsheetsAPI,
+	dataLake contracts.DataLake,
 	postgresSubscriber message.Subscriber,
 	redisPublisher message.Publisher,
 	redisSubscriber message.Subscriber,
@@ -40,6 +44,39 @@ func NewWatermillRouter(
 			}
 
 			return redisPublisher.Publish("events."+eventName, msg)
+		},
+	)
+
+	router.AddNoPublisherHandler(
+		"events_store",
+		"events",
+		redisSubscriber,
+		func(msg *message.Message) error {
+			eventName := events.Marshaler.NameFromMessage(msg)
+			if eventName == "" {
+				return fmt.Errorf("cannot get event name from message")
+			}
+
+			type Event struct {
+				Header entities.EventHeader `json:"header"`
+			}
+
+			var event Event
+			if err := events.Marshaler.Unmarshal(msg, &event); err != nil {
+				return fmt.Errorf("cannot unmarshal event: %w", err)
+			}
+
+			eventID, err := uuid.Parse(event.Header.ID)
+			if err != nil {
+				return fmt.Errorf("could not parse event uuid: %w", err)
+			}
+
+			return dataLake.Store(msg.Context(), entities.DataLakeEvent{
+				EventID:      eventID,
+				PublishedAt:  time.Now(),
+				EventName:    eventName,
+				EventPayload: string(msg.Payload),
+			})
 		},
 	)
 

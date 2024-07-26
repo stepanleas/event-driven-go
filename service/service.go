@@ -53,6 +53,7 @@ func New(
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showRepo := db.NewShowRepository(dbConn)
 	bookingRepo := db.NewBookingRepository(dbConn)
+	dataLake := db.NewDataLake(dbConn)
 	opsReadModel := read_model.NewOpsBookingReadModel(dbConn)
 
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
@@ -67,6 +68,7 @@ func New(
 	watermillRouter := message.NewWatermillRouter(
 		receiptsService,
 		spreadsheetsService,
+		dataLake,
 		postgresSub,
 		redisPublisher,
 		redisSub,

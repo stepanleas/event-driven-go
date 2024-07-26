@@ -31,6 +31,10 @@ type BookingRepository interface {
 	Add(ctx context.Context, booking entities.Booking) error
 }
 
+type DataLake interface {
+	Store(ctx context.Context, event entities.DataLakeEvent) error
+}
+
 type FilesAPI interface {
 	UploadFile(ctx context.Context, fileID string, fileContent string) error
 }
