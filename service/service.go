@@ -57,9 +57,10 @@ func New(
 
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
-	var redisPublisher watermillMessage.Publisher
-	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
+	redisPublisher := message.NewRedisPublisher(redisClient, watermillLogger)
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
+
+	redisSub := message.NewRedisSubscriber(redisClient, watermillLogger)
 
 	postgresSub := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
 
@@ -68,6 +69,7 @@ func New(
 		spreadsheetsService,
 		postgresSub,
 		redisPublisher,
+		redisSub,
 		watermillLogger,
 	)
 

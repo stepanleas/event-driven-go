@@ -10,7 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var marshaler = cqrs.JSONMarshaler{
+var Marshaler = cqrs.JSONMarshaler{
 	GenerateName: cqrs.StructName,
 }
 
@@ -28,7 +28,7 @@ func NewEventProcessorConfig(rdb *redis.Client, logger watermill.LoggerAdapter) 
 		GenerateSubscribeTopic: func(params cqrs.EventProcessorGenerateSubscribeTopicParams) (string, error) {
 			return fmt.Sprintf("events.%s", params.EventName), nil
 		},
-		Marshaler: marshaler,
+		Marshaler: Marshaler,
 		Logger:    logger,
 	}
 }
