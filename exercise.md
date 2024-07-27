@@ -1,38 +1,42 @@
-# Event Versioning
+# Internal Events
 
-Emitting an event to a Pub/Sub, which anyone from the company can access, becomes a contract between you and other teams.
-When the event is added to the data lake, it's even more important to not change it.
-On our blog, we mentioned multiple times that it's important to build a system that is open to changes.
-What should we do if we need to change the event format?
+You may be afraid to publish any new events after reading so much about backward compatibility.
+However, there is one strategy that allows us to publish events without the need for any backward compatibility guarantees:
+We can introduce internal events to our system.
 
-## Backward-compatible changes
+Internal events are ones that should be just used by one service or one team.
+They should be not published to the data lake (or, at least, not considered part of the contract).
+Thanks to that, they don't need any backward compatibility guarantees.
+You can change them without fear that you will break any other service.
+You can think about them as a way of encapsulation (like public/private methods).
 
-The best strategy is to add new fields without removing the old ones.
-In our experience, this is possible in most cases.
-The tradeoff is that you need to keep the old fields forever (and keep the payload bigger than it could be).
-However, this may be a good tradeoff.
+There are multiple ways of naming them; in most sources you can find the following:
+- For internal: private
+- For external: public, integration
 
-## Non-backward-compatible changes
+## When to Use Internal Events
 
-It would be wonderful if all changes were backward compatible,
-but in the real world, that is not always possible.
+There is no simple answer here.
+On the one hand, if you are using internal events, you are making your external contract smaller.
+On the other hand, you are exposing less information about your system to other teams for integration or data analytics.
+**It's a tradeoff, and you need to decide if this event may change and whether it may be useful for other teams.**
 
-Sometimes, adding a new field is not an option.
-There may be multiple reasons for this:
+Internal events may be also a good choice for a very technical events that are not related to the domain.
 
-- The event is too big, and adding a new field will make it even bigger.
-- The event changed, so it was emitted in a different situation than before (due to domain logic changes).
-- Some fields are no longer available.
+If you are not sure, you can always start with an internal event and expose it later.
 
-## Migrating
+## Exercise
 
-1. Add a new event with a new name and new format while keeping the old one.
-2. Emit new events.
-3. Try to update all consumers to use the new events.
-4. Remove the old events.
+File: `project/main.go`
 
-Sometimes, point number 3 never happens, which is fine.
-It may sometimes be impossible to find all the use cases of the event.
+There is no single way of implementing internal events.
+We will show you how we do it in our projects.
+
+A good example of an internal event might be `InternalOpsReadModelUpdated`.
+Nobody else should depend on that event, which is also very technical. 
+The contract may also change with time, depending on what use cases you want to support.
+
+This event could be used for sending SSE updates to the frontend.
 
 
 <div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
@@ -45,43 +49,161 @@ It may sometimes be impossible to find all the use cases of the event.
 		</h3>
         <span>
 
-The process of event version migration is not simple, and sometimes it is not worth the effort.
-
-With an API, it's easier to measure who is using an endpoint and how often.
-Events are usually used in a more "indirect" way, so it's harder to find who is using them and with what frequency.
-
-This shows how important it is to spend enough time on designing events: You may have no chance to change them later.
+Server-sent events (SSE) are out of the scope of this training, but Watermill has support for them out of the box.
+You can read more in the [Watermill SSE example](https://github.com/ThreeDotsLabs/watermill/tree/master/_examples/real-world-examples/server-sent-events).
 
 </span>
 	</div>
 	</div>
 
-Even if we should avoid making non-backward-compatible changes, it's good to keep the door open for that.
-To support this possibility, we will add versions to all of our events.
+Our event can be as simple as this:
 
-The simplest strategy to do that is to add a suffix for each event type.
-For example, `TicketBookingConfirmed` will become `TicketBookingConfirmed_v1`.
-This is practical because `TicketBookingConfirmed_v1` and `TicketBookingConfirmed_v2`
-are treated as totally separate events, so you don't risk accidentally using the wrong version of the event.
-Version 2 may have much different meaning than version 1 and may be triggered at a much different moment.
+```go
+type InternalOpsReadModelUpdated struct {
+	Header EventHeader `json:"header"`
+	
+	BookingID uuid.UUID `json:"booking_id"`
+}
+```
 
-If you have an already existing system, and you need to introduce versioning, you can just assume that 
-events without a version number are version 1.
-It's not a big problem in our project, so we can change all events to contain an explicit version number.
+It should be emitted after each update of the read model. If we used SSE, it would send the update of the content to the frontend.
+
+We don't need to use outbox here — it's not a disaster if this event is lost.
+It will be also less expensive in terms of resources if we emit it directly to Redis Streams.
+
+It would be good to have an explicit way to know if an event is internal or not.
+Checking the prefix of the struct name doesn't sound explicit enough.
+Instead, let's define the `Event` interface:
+
+```go
+type Event interface {
+	IsInternal() bool
+}
+```
+
+`InternalOpsReadModelUpdated` should return `true`:
+
+```go
+func (i InternalOpsReadModelUpdated) IsInternal() bool {
+	return true
+}
+```
+
+It should return `false` for all non-internal events.
+
+We want to ensure that this event won't be sent to the data lake.
+To do that, we can change the logic of the event bus so that it will publish internal events directly to the per-event topic.
+For `InternalOpsReadModelUpdated`, it will be `internal-events.svc-tickets.InternalOpsReadModelUpdated`.
+
+```mermaid
+graph LR
+    A[Event Bus] --> B['events' topic]
+    B --> C[Data lake consumer]
+    B --> D[Events forwarder]
+    C --> E[Data lake]
+    D --> F['events.BookingMade' topic]
+    D --> G['events.TicketBookingConfirmed' topic]
+    D --> H['events.TicketReceiptIssued' topic]
+    D --> I['events.TicketPrinted' topic]
+    D --> J['events.TicketRefunded' topic]
+    D --> K['events.ReadModelIn' topic]
+    A -- publish directly --> L['internal-events.svc-tickets.InternalOpsReadModelUpdated'<br>topic]
 
 
-## Exercise
+classDef orange fill:#f96,stroke:#333,stroke-width:4px;
+class L orange
+```
 
-File: `project/main.go`
+It will not go through the `events` topic, so it won't be stored to the data lake.
 
-Please add a `v1` suffix to  all events in your application.
-For example, `TicketBookingConfirmed` should become `TicketBookingConfirmed_v1`, etc.
 
-You don't need to change your event bus / event processor configuration.
+<div class="accordion" id="hints-accordion">
 
-Events will be published to new topics. 
+<div class="accordion-item">
+	<h3 class="accordion-header" id="hints-accordion-header-1">
+	<button class="accordion-button fs-4 fw-semibold collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#hints-accordion-body-1" aria-expanded="false" aria-controls="hints-accordion">
+		Hint #1
+	</button>
+	</h3>
+	<div id="hints-accordion-body-1" class="accordion-collapse collapse" aria-labelledby="hints-accordion-header-1" data-bs-parent="#hints-accordion">
+	<div class="accordion-body">
 
-For example: `TicketBookingConfirmed_v1` should be published to `events.TicketBookingConfirmed_v1`
-Event processors will also listen to new topics.
+To change the topics used for publishing and subscribing, 
+you need to adjust the [event bus](/trainings/go-event-driven/exercise/4c908a02-a3e9-4a20-ad09-20a511c1c912) config and [event processor](/trainings/go-event-driven/exercise/7d5d32c0-772e-48f3-82a9-087a49e73931) config.
+Both of them have access to the published and subscribed events.
 
-For now, let's just introduce v1 for all our events. We will add new event with version 2 soon.
+```go
+cqrs.EventBusConfig{
+     GeneratePublishTopic: func(params cqrs.GenerateEventPublishTopicParams) (string, error) {
+         event, ok := params.Event.(entities.Event)
+         if !ok {
+             return "", fmt.Errorf("invalid event type: %T doesn't implement entities.Event", params.Event)
+         }
+
+         if event.IsInternal() {
+             // Publish directly to the per-event topic
+             return "internal-events.svc-tickets." + params.EventName, nil
+         } else {
+             // Publish to the "events" topic, so it will be stored to the data lake and forwarded to the
+             // per-event topic
+             return "events", nil
+         }
+     }
+```
+
+```go
+return cqrs.EventProcessorConfig{
+     GenerateSubscribeTopic: func(params cqrs.EventProcessorGenerateSubscribeTopicParams) (string, error) {
+         handlerEvent := params.EventHandler.NewEvent()
+         event, ok := handlerEvent.(entities.Event)
+         if !ok {
+             return "", fmt.Errorf("invalid event type: %T doesn't implement entities.Event", handlerEvent)
+         }
+
+         var prefix string
+         if event.IsInternal() {
+             prefix = "internal-events.svc-tickets."
+         } else {
+             prefix = "events."
+         }
+
+         return fmt.Sprintf(prefix + params.EventName), nil
+     },
+```
+
+</div>
+	</div>
+	</div>
+
+<div class="accordion-item">
+	<h3 class="accordion-header" id="hints-accordion-header-2">
+	<button class="accordion-button fs-4 fw-semibold collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#hints-accordion-body-2" aria-expanded="false" aria-controls="hints-accordion">
+		Hint #2
+	</button>
+	</h3>
+	<div id="hints-accordion-body-2" class="accordion-collapse collapse" aria-labelledby="hints-accordion-header-2" data-bs-parent="#hints-accordion">
+	<div class="accordion-body">
+
+How do you publish an event when the read model is updated? Just inject the event bus to the read model and publish the event.
+
+```go
+    // ...
+	
+			return r.updateReadModel(ctx, tx, updatedRm)
+		},
+	); err != nil {
+		return err
+	}
+
+	return r.eventBus.Publish(ctx, &entities.InternalOpsReadModelUpdated{
+		Header:    entities.NewEventHeader(),
+		BookingID: uuid.MustParse(bookingID),
+	})
+}
+```
+
+</div>
+	</div>
+	</div>
+
+</div>

@@ -54,7 +54,6 @@ func New(
 	showRepo := db.NewShowRepository(dbConn)
 	bookingRepo := db.NewBookingRepository(dbConn)
 	dataLake := db.NewDataLake(dbConn)
-	opsReadModel := read_model.NewOpsBookingReadModel(dbConn)
 
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
@@ -83,6 +82,8 @@ func New(
 	if err != nil {
 		panic(err)
 	}
+
+	opsReadModel := read_model.NewOpsBookingReadModel(dbConn, eventBus)
 
 	events.AddEventProcessorHandlers(
 		eventProcessor,

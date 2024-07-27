@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"tickets/entities"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
@@ -26,7 +27,17 @@ func NewEventProcessorConfig(rdb *redis.Client, logger watermill.LoggerAdapter) 
 			)
 		},
 		GenerateSubscribeTopic: func(params cqrs.EventProcessorGenerateSubscribeTopicParams) (string, error) {
-			return fmt.Sprintf("events.%s", params.EventName), nil
+			handlerEvent := params.EventHandler.NewEvent()
+			event, ok := handlerEvent.(entities.Event)
+			if !ok {
+				return "", fmt.Errorf("invalid event type: %T doesn't implement entities.Event", handlerEvent)
+			}
+
+			if event.IsInternal() {
+				return "internal-events.svc-tickets." + params.EventName, nil
+			}
+
+			return "events." + params.EventName, nil
 		},
 		Marshaler: Marshaler,
 		Logger:    logger,

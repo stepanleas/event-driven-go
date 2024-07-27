@@ -28,6 +28,10 @@ func NewEventHeaderWithIdempotencyKey(idempotencyKey string) EventHeader {
 	}
 }
 
+type Event interface {
+	IsInternal() bool
+}
+
 type TicketBookingConfirmed_v1 struct {
 	Header EventHeader `json:"header"`
 
@@ -38,6 +42,10 @@ type TicketBookingConfirmed_v1 struct {
 	BookingID string `json:"booking_id"`
 }
 
+func (e TicketBookingConfirmed_v1) IsInternal() bool {
+	return false
+}
+
 type TicketBookingCanceled_v1 struct {
 	Header EventHeader `json:"header"`
 
@@ -46,10 +54,18 @@ type TicketBookingCanceled_v1 struct {
 	Price         Money  `json:"price"`
 }
 
+func (e TicketBookingCanceled_v1) IsInternal() bool {
+	return false
+}
+
 type TicketRefunded_v1 struct {
 	Header EventHeader `json:"header"`
 
 	TicketID string `json:"ticket_id"`
+}
+
+func (e TicketRefunded_v1) IsInternal() bool {
+	return false
 }
 
 type TicketPrinted_v1 struct {
@@ -59,6 +75,10 @@ type TicketPrinted_v1 struct {
 	FileName string `json:"file_name"`
 }
 
+func (e TicketPrinted_v1) IsInternal() bool {
+	return false
+}
+
 type TicketReceiptIssued_v1 struct {
 	Header EventHeader `json:"header"`
 
@@ -66,6 +86,10 @@ type TicketReceiptIssued_v1 struct {
 	ReceiptNumber string `json:"receipt_number"`
 
 	IssuedAt time.Time `json:"issued_at"`
+}
+
+func (e TicketReceiptIssued_v1) IsInternal() bool {
+	return false
 }
 
 type BookingMade_v1 struct {
@@ -78,4 +102,18 @@ type BookingMade_v1 struct {
 	CustomerEmail     string    `json:"customer_email"`
 	ShowId            uuid.UUID `json:"show_id"`
 	DeadNationEventID uuid.UUID `json:"dead_nation_id"`
+}
+
+func (e BookingMade_v1) IsInternal() bool {
+	return false
+}
+
+type InternalOpsReadModelUpdated struct {
+	Header EventHeader `json:"header"`
+
+	BookingID uuid.UUID `json:"booking_id"`
+}
+
+func (e InternalOpsReadModelUpdated) IsInternal() bool {
+	return true
 }
