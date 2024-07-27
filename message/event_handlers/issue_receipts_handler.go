@@ -23,7 +23,7 @@ func NewIssueReceiptsHandler(receiptsClient contracts.ReceiptsService, eventBus 
 	}
 }
 
-func (h IssueReceiptsHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed) error {
+func (h IssueReceiptsHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed_v1) error {
 	log.FromContext(ctx).Info("Issuing receipt")
 
 	request := entities.IssueReceiptRequest{
@@ -37,7 +37,7 @@ func (h IssueReceiptsHandler) Handle(ctx context.Context, event *entities.Ticket
 		return fmt.Errorf("failed to issue receipt: %w", err)
 	}
 
-	return h.eventBus.Publish(ctx, entities.TicketReceiptIssued{
+	return h.eventBus.Publish(ctx, entities.TicketReceiptIssued_v1{
 		Header:        entities.NewEventHeaderWithIdempotencyKey(event.Header.IdempotencyKey),
 		TicketID:      event.TicketID,
 		ReceiptNumber: resp.ReceiptNumber,

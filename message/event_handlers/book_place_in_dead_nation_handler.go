@@ -19,7 +19,7 @@ func NewBookingMadeHandler(deadNationClient contracts.DeadNationApi, showRepo co
 	return BookPlaceInDeadNationHandler{deadNationClient: deadNationClient, showRepo: showRepo}
 }
 
-func (h BookPlaceInDeadNationHandler) Handle(ctx context.Context, event *entities.BookingMade) error {
+func (h BookPlaceInDeadNationHandler) Handle(ctx context.Context, event *entities.BookingMade_v1) error {
 	log.FromContext(ctx).Info("Generating ticket for booking")
 
 	show, err := h.showRepo.FindByID(ctx, event.ShowId)

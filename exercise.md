@@ -1,7 +1,38 @@
-# Store events in Data Lake
+# Event Versioning
 
-Now, when we have all of our events on a single topic, we can store them in the data lake.
-For the purposes of the training, we will use PostgreSQL as our data lake.
+Emitting an event to a Pub/Sub, which anyone from the company can access, becomes a contract between you and other teams.
+When the event is added to the data lake, it's even more important to not change it.
+On our blog, we mentioned multiple times that it's important to build a system that is open to changes.
+What should we do if we need to change the event format?
+
+## Backward-compatible changes
+
+The best strategy is to add new fields without removing the old ones.
+In our experience, this is possible in most cases.
+The tradeoff is that you need to keep the old fields forever (and keep the payload bigger than it could be).
+However, this may be a good tradeoff.
+
+## Non-backward-compatible changes
+
+It would be wonderful if all changes were backward compatible,
+but in the real world, that is not always possible.
+
+Sometimes, adding a new field is not an option.
+There may be multiple reasons for this:
+
+- The event is too big, and adding a new field will make it even bigger.
+- The event changed, so it was emitted in a different situation than before (due to domain logic changes).
+- Some fields are no longer available.
+
+## Migrating
+
+1. Add a new event with a new name and new format while keeping the old one.
+2. Emit new events.
+3. Try to update all consumers to use the new events.
+4. Remove the old events.
+
+Sometimes, point number 3 never happens, which is fine.
+It may sometimes be impossible to find all the use cases of the event.
 
 
 <div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
@@ -14,90 +45,43 @@ For the purposes of the training, we will use PostgreSQL as our data lake.
 		</h3>
         <span>
 
-Just a reminder: PostgreSQL is usually not a good choice for a data lake at scale.
-If your dataset grows huge, PostgreSQL may turn out too expensive to store all the events.
+The process of event version migration is not simple, and sometimes it is not worth the effort.
+
+With an API, it's easier to measure who is using an endpoint and how often.
+Events are usually used in a more "indirect" way, so it's harder to find who is using them and with what frequency.
+
+This shows how important it is to spend enough time on designing events: You may have no chance to change them later.
 
 </span>
 	</div>
 	</div>
 
-You can think about a data lake as being like a big [read model](/trainings/go-event-driven/exercise/cc7047b9-4d4b-413e-abbc-cbe29a8cba9d) containing all events in raw form.
+Even if we should avoid making non-backward-compatible changes, it's good to keep the door open for that.
+To support this possibility, we will add versions to all of our events.
+
+The simplest strategy to do that is to add a suffix for each event type.
+For example, `TicketBookingConfirmed` will become `TicketBookingConfirmed_v1`.
+This is practical because `TicketBookingConfirmed_v1` and `TicketBookingConfirmed_v2`
+are treated as totally separate events, so you don't risk accidentally using the wrong version of the event.
+Version 2 may have much different meaning than version 1 and may be triggered at a much different moment.
+
+If you have an already existing system, and you need to introduce versioning, you can just assume that 
+events without a version number are version 1.
+It's not a big problem in our project, so we can change all events to contain an explicit version number.
+
 
 ## Exercise
 
 File: `project/main.go`
 
-Please add a [message handler](/trainings/go-event-driven/exercise/6e0ddff2-aaf9-4188-aeea-9fc8eb9ac6ba) that will store all events in the data lake.
-An event handler won't work here because we need to store our events in raw form.
-It should listen to the `events` topic and store all events in the data lake.
+Please add a `v1` suffix to  all events in your application.
+For example, `TicketBookingConfirmed` should become `TicketBookingConfirmed_v1`, etc.
 
-**It's important to use exactly this schema for your `events` table:**
+You don't need to change your event bus / event processor configuration.
 
-```sql
-CREATE TABLE IF NOT EXISTS events (
-    event_id UUID PRIMARY KEY,
-    published_at TIMESTAMP NOT NULL,
-    event_name VARCHAR(255) NOT NULL,
-    event_payload JSONB NOT NULL
-);
-```
+Events will be published to new topics. 
 
-We will later depend on this exact schema.
+For example: `TicketBookingConfirmed_v1` should be published to `events.TicketBookingConfirmed_v1`
+Event processors will also listen to new topics.
 
-Please don't forget about [at-least-once delivery](/trainings/go-event-driven/exercise/7c4d2754-3fec-44f9-9d46-63be65a76468)!
-You should deduplicate potential redelivered events.
-
-
-<div class="accordion" id="hints-accordion">
-
-<div class="accordion-item">
-	<h3 class="accordion-header" id="hints-accordion-header-1">
-	<button class="accordion-button fs-4 fw-semibold collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#hints-accordion-body-1" aria-expanded="false" aria-controls="hints-accordion">
-		Hint #1
-	</button>
-	</h3>
-	<div id="hints-accordion-body-1" class="accordion-collapse collapse" aria-labelledby="hints-accordion-header-1" data-bs-parent="#hints-accordion">
-	<div class="accordion-body">
-
-To store events in a data lake, you need to extract the header from the event.
-You can do this by unmarshaling the event to a struct that just has a header field:
-
-```go
-// We just need to unmarshal the event header; the rest is stored as is.
-type Event struct {
-	Header entities.EventHeader `json:"header"`
-}
-
-var event Event
-if err := eventProcessorConfig.Marshaler.Unmarshal(msg, &event); err != nil {
-	return fmt.Errorf("cannot unmarshal event: %w", err)
-}
-```
-
-</div>
-	</div>
-	</div>
-
-<div class="accordion-item">
-	<h3 class="accordion-header" id="hints-accordion-header-2">
-	<button class="accordion-button fs-4 fw-semibold collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#hints-accordion-body-2" aria-expanded="false" aria-controls="hints-accordion">
-		Hint #2
-	</button>
-	</h3>
-	<div id="hints-accordion-body-2" class="accordion-collapse collapse" aria-labelledby="hints-accordion-header-2" data-bs-parent="#hints-accordion">
-	<div class="accordion-body">
-
-As in previous exercises, you can extract the event name from a message by using the CQRS marshaler:
-
-```go
-eventName := eventProcessorConfig.Marshaler.NameFromMessage(msg)
-if eventName == "" {
-	return fmt.Errorf("cannot get event name from message")
-}
-```
-
-</div>
-	</div>
-	</div>
-
-</div>
+For now, let's just introduce v1 for all our events. We will add new event with version 2 soon.

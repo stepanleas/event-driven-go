@@ -52,7 +52,7 @@ func (h RefundTicketHandler) Handle(ctx context.Context, command *entities.Refun
 		return fmt.Errorf("failed to refund payment: %w", err)
 	}
 
-	err = h.eventBus.Publish(ctx, entities.TicketRefunded{
+	err = h.eventBus.Publish(ctx, entities.TicketRefunded_v1{
 		Header:   entities.NewEventHeader(),
 		TicketID: command.TicketID,
 	})

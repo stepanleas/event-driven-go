@@ -17,7 +17,7 @@ func NewTicketsToRefundHandler(spreadsheetsClient contracts.SpreadsheetsAPI) Tic
 	return TicketsToRefundHandler{spreadsheetsClient: spreadsheetsClient}
 }
 
-func (h TicketsToRefundHandler) Handle(ctx context.Context, event *entities.TicketBookingCanceled) error {
+func (h TicketsToRefundHandler) Handle(ctx context.Context, event *entities.TicketBookingCanceled_v1) error {
 	log.FromContext(ctx).Info("Adding ticket refund to sheet")
 
 	return h.spreadsheetsClient.AppendRow(

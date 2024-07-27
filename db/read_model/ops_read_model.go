@@ -67,7 +67,7 @@ func (r OpsBookingReadModel) BookingReadModel(ctx context.Context, bookingID str
 	return r.findReadModelByBookingID(ctx, bookingID, r.db)
 }
 
-func (r OpsBookingReadModel) OnBookingMade(ctx context.Context, event *entities.BookingMade) error {
+func (r OpsBookingReadModel) OnBookingMade(ctx context.Context, event *entities.BookingMade_v1) error {
 	err := r.createReadModel(ctx, entities.OpsBooking{
 		BookingID:  event.BookingID,
 		BookedAt:   event.Header.PublishedAt,
@@ -81,7 +81,7 @@ func (r OpsBookingReadModel) OnBookingMade(ctx context.Context, event *entities.
 	return nil
 }
 
-func (r OpsBookingReadModel) OnTicketReceiptIssued(ctx context.Context, event *entities.TicketReceiptIssued) error {
+func (r OpsBookingReadModel) OnTicketReceiptIssued(ctx context.Context, event *entities.TicketReceiptIssued_v1) error {
 	err := r.updateTicketInBookingReadModel(
 		ctx,
 		event.TicketID,
@@ -98,7 +98,7 @@ func (r OpsBookingReadModel) OnTicketReceiptIssued(ctx context.Context, event *e
 	return nil
 }
 
-func (r OpsBookingReadModel) OnTicketBookingConfirmed(ctx context.Context, event *entities.TicketBookingConfirmed) error {
+func (r OpsBookingReadModel) OnTicketBookingConfirmed(ctx context.Context, event *entities.TicketBookingConfirmed_v1) error {
 	return r.updateBookingReadModel(
 		ctx,
 		event.BookingID,
@@ -123,7 +123,7 @@ func (r OpsBookingReadModel) OnTicketBookingConfirmed(ctx context.Context, event
 	)
 }
 
-func (r OpsBookingReadModel) OnTicketPrinted(ctx context.Context, event *entities.TicketPrinted) error {
+func (r OpsBookingReadModel) OnTicketPrinted(ctx context.Context, event *entities.TicketPrinted_v1) error {
 	err := r.updateTicketInBookingReadModel(
 		ctx,
 		event.TicketID,
@@ -140,7 +140,7 @@ func (r OpsBookingReadModel) OnTicketPrinted(ctx context.Context, event *entitie
 	return nil
 }
 
-func (r OpsBookingReadModel) OnTicketRefunded(ctx context.Context, event *entities.TicketRefunded) error {
+func (r OpsBookingReadModel) OnTicketRefunded(ctx context.Context, event *entities.TicketRefunded_v1) error {
 	err := r.updateTicketInBookingReadModel(
 		ctx,
 		event.TicketID,

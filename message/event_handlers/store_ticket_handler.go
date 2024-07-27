@@ -16,7 +16,7 @@ func NewStoreTicketHandler(repo contracts.TicketRepository) StoreTicketHandler {
 	return StoreTicketHandler{repo: repo}
 }
 
-func (h StoreTicketHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed) error {
+func (h StoreTicketHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed_v1) error {
 	log.FromContext(ctx).Info("Storing ticket in database")
 
 	ticket := entities.Ticket{

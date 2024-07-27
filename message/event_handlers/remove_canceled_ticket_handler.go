@@ -16,7 +16,7 @@ func NewRemoveCanceledTicketHandler(repo contracts.TicketRepository) RemoveCance
 	return RemoveCanceledTicketHandler{repo: repo}
 }
 
-func (h RemoveCanceledTicketHandler) Handle(ctx context.Context, event *entities.TicketBookingCanceled) error {
+func (h RemoveCanceledTicketHandler) Handle(ctx context.Context, event *entities.TicketBookingCanceled_v1) error {
 	log.FromContext(ctx).Info("Removing canceled ticket from database")
 
 	return h.repo.Remove(ctx, event.TicketID)

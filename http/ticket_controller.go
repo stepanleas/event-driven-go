@@ -79,7 +79,7 @@ func (ctrl TicketController) Status(c echo.Context) error {
 
 	for _, ticket := range request.Tickets {
 		if ticket.Status == "confirmed" {
-			event := entities.TicketBookingConfirmed{
+			event := entities.TicketBookingConfirmed_v1{
 				Header:        entities.NewEventHeaderWithIdempotencyKey(idempotencyKey + ticket.TicketID),
 				TicketID:      ticket.TicketID,
 				CustomerEmail: ticket.CustomerEmail,
@@ -91,7 +91,7 @@ func (ctrl TicketController) Status(c echo.Context) error {
 				return fmt.Errorf("failed to publish TicketBookingConfirmed event: %w", err)
 			}
 		} else if ticket.Status == "canceled" {
-			event := entities.TicketBookingCanceled{
+			event := entities.TicketBookingCanceled_v1{
 				Header:        entities.NewEventHeaderWithIdempotencyKey(idempotencyKey + ticket.TicketID),
 				TicketID:      ticket.TicketID,
 				CustomerEmail: ticket.CustomerEmail,

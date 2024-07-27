@@ -17,7 +17,7 @@ func NewAppendToTrackerHandler(spreadsheetsClient contracts.SpreadsheetsAPI) App
 	return AppendToTrackerHandler{spreadsheetsClient: spreadsheetsClient}
 }
 
-func (h AppendToTrackerHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed) error {
+func (h AppendToTrackerHandler) Handle(ctx context.Context, event *entities.TicketBookingConfirmed_v1) error {
 	log.FromContext(ctx).Info("Generating ticket for booking")
 
 	return h.spreadsheetsClient.AppendRow(
