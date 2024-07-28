@@ -22,7 +22,17 @@ func NewDataLake(db *sqlx.DB) DataLake {
 	return DataLake{db: db}
 }
 
-func (r DataLake) Store(ctx context.Context, event entities.DataLakeEvent) error {
+func (d DataLake) FindAll(ctx context.Context) ([]entities.DataLakeEvent, error) {
+	var events []entities.DataLakeEvent
+	err := d.db.SelectContext(ctx, &events, "SELECT * FROM events ORDER BY published_at ASC")
+	if err != nil {
+		return nil, fmt.Errorf("could not get events from data lake: %w", err)
+	}
+
+	return events, nil
+}
+
+func (d DataLake) Store(ctx context.Context, event entities.DataLakeEvent) error {
 	args := map[string]interface{}{
 		"event_id":      event.EventID,
 		"published_at":  event.PublishedAt,
@@ -30,7 +40,7 @@ func (r DataLake) Store(ctx context.Context, event entities.DataLakeEvent) error
 		"event_payload": event.EventPayload,
 	}
 
-	_, err := r.db.NamedExecContext(
+	_, err := d.db.NamedExecContext(
 		ctx,
 		`
 		INSERT INTO

@@ -13,6 +13,7 @@ import (
 	"tickets/message/contracts"
 	"tickets/message/events"
 	"tickets/message/events/outbox"
+	"tickets/migrations"
 
 	_ "github.com/lib/pq"
 
@@ -34,6 +35,8 @@ type Service struct {
 	db              *sqlx.DB
 	watermillRouter *watermillMessage.Router
 	echoRouter      *echo.Echo
+	dataLake        contracts.DataLake
+	opsReadModel    read_model.OpsBookingReadModel
 }
 
 type ReceiptService interface {
@@ -122,6 +125,8 @@ func New(
 		db:              dbConn,
 		watermillRouter: watermillRouter,
 		echoRouter:      echoRouter,
+		dataLake:        dataLake,
+		opsReadModel:    opsReadModel,
 	}
 }
 
@@ -129,6 +134,12 @@ func (s Service) Run(ctx context.Context) error {
 	if err := db.InitializeDatabaseSchema(s.db); err != nil {
 		return fmt.Errorf("failed to initialize database schema: %w", err)
 	}
+
+	go func() {
+		if err := migrations.MigrateReadModel(ctx, s.dataLake, s.opsReadModel); err != nil {
+			log.FromContext(ctx).Errorf("failed to migrate read model: %v", err)
+		}
+	}()
 
 	errgrp, ctx := errgroup.WithContext(ctx)
 

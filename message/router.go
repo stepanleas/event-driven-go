@@ -10,7 +10,6 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/google/uuid"
 )
 
 func NewWatermillRouter(
@@ -66,16 +65,11 @@ func NewWatermillRouter(
 				return fmt.Errorf("cannot unmarshal event: %w", err)
 			}
 
-			eventID, err := uuid.Parse(event.Header.ID)
-			if err != nil {
-				return fmt.Errorf("could not parse event uuid: %w", err)
-			}
-
 			return dataLake.Store(msg.Context(), entities.DataLakeEvent{
-				EventID:      eventID,
+				EventID:      event.Header.ID,
 				PublishedAt:  time.Now(),
 				EventName:    eventName,
-				EventPayload: string(msg.Payload),
+				EventPayload: msg.Payload,
 			})
 		},
 	)

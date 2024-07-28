@@ -32,6 +32,7 @@ type BookingRepository interface {
 }
 
 type DataLake interface {
+	FindAll(ctx context.Context) ([]entities.DataLakeEvent, error)
 	Store(ctx context.Context, event entities.DataLakeEvent) error
 }
 
