@@ -14,8 +14,11 @@ import (
 	"tickets/message/events"
 	"tickets/message/events/outbox"
 	"tickets/migrations"
+	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
@@ -26,6 +29,24 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
+
+var (
+	veryImportantCounter = promauto.NewCounter(prometheus.CounterOpts{
+		// metric will be named tickets_very_important_counter_total
+		Namespace: "tickets",
+		Name:      "very_important_counter_total",
+		Help:      "Total number of very important things processed",
+	})
+)
+
+func recordMetrics() {
+	go func() {
+		for {
+			veryImportantCounter.Inc()
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
+}
 
 func init() {
 	log.Init(logrus.InfoLevel)
@@ -59,6 +80,8 @@ func New(
 	dataLake := db.NewDataLake(dbConn)
 
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
+
+	recordMetrics()
 
 	redisPublisher := message.NewRedisPublisher(redisClient, watermillLogger)
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}

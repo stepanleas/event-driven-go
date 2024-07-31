@@ -5,6 +5,7 @@ import (
 	"tickets/message/contracts"
 
 	libHttp "github.com/ThreeDotsLabs/go-event-driven/common/http"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"github.com/labstack/echo/v4"
@@ -26,6 +27,7 @@ func NewHttpRouter(
 
 	e := libHttp.NewEcho()
 	e.GET("/health", ticketCtrl.HealthCheck)
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	e.GET("/tickets", ticketCtrl.FindAll)
 	e.POST("/tickets-status", ticketCtrl.Status)
