@@ -6,10 +6,12 @@ import (
 	"tickets/message/contracts"
 	"tickets/message/events"
 	"tickets/message/events/outbox"
+	"tickets/message/middleware"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func NewWatermillRouter(
@@ -27,10 +29,32 @@ func NewWatermillRouter(
 	}
 
 	router.AddMiddleware(
-		RetryMiddleware(logger).Middleware,
-		CorrelationIDMiddleware,
-		LoggingMiddleware,
+		middleware.RetryMiddleware(logger).Middleware,
+		middleware.CorrelationIDMiddleware,
+		middleware.LoggingMiddleware,
 	)
+
+	router.AddMiddleware(func(h message.HandlerFunc) message.HandlerFunc {
+		return func(msg *message.Message) (events []*message.Message, err error) {
+			start := time.Now()
+
+			topic := message.SubscribeTopicFromCtx(msg.Context())
+			handler := message.HandlerNameFromCtx(msg.Context())
+
+			labels := prometheus.Labels{"topic": topic, "handler": handler}
+
+			middleware.MessagesProcessedCounter.With(labels).Inc()
+
+			msgs, err := h(msg)
+			if err != nil {
+				middleware.MessagesProcessingFailedCounter.With(labels).Inc()
+			}
+
+			middleware.MessagesProcessingDuration.With(labels).Observe(time.Since(start).Seconds())
+
+			return msgs, err
+		}
+	})
 
 	router.AddNoPublisherHandler(
 		"events_splitter",
