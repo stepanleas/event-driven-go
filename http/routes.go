@@ -6,6 +6,7 @@ import (
 
 	libHttp "github.com/ThreeDotsLabs/go-event-driven/common/http"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"github.com/labstack/echo/v4"
@@ -26,14 +27,18 @@ func NewHttpRouter(
 	opsBookingCtrl := NewOpsBookingController(opsReadModel)
 
 	e := libHttp.NewEcho()
-	e.GET("/health", ticketCtrl.HealthCheck)
+
+	e.Use(otelecho.Middleware("tickets"))
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+
+	e.GET("/health", ticketCtrl.HealthCheck)
 
 	e.GET("/tickets", ticketCtrl.FindAll)
 	e.POST("/tickets-status", ticketCtrl.Status)
 	e.POST("/book-tickets", bookingCtrl.Store)
 	e.PUT("/ticket-refund/:ticket_id", ticketCtrl.Refund)
 
+	e.GET("/shows", showCtrl.FindAll)
 	e.POST("/shows", showCtrl.Store)
 
 	e.GET("/ops/bookings", opsBookingCtrl.FindAll)

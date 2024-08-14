@@ -27,6 +27,15 @@ func NewShowController(repo contracts.ShowRepository) ShowController {
 	return ShowController{repo: repo}
 }
 
+func (ctrl ShowController) FindAll(c echo.Context) error {
+	shows, err := ctrl.repo.FindAll(c.Request().Context())
+	if err != nil {
+		return fmt.Errorf("failed to fetch shows: %w", err)
+	}
+
+	return c.JSON(http.StatusOK, shows)
+}
+
 func (ctrl ShowController) Store(c echo.Context) error {
 	var request showCreateRequest
 	if err := c.Bind(&request); err != nil {

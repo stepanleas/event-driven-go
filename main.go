@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,29 +14,44 @@ import (
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	apiClients, err := clients.NewClients(
+	traceHttpClient := &http.Client{Transport: otelhttp.NewTransport(
+		http.DefaultTransport,
+		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
+			return fmt.Sprintf("HTTP %s %s %s", r.Method, r.URL.String(), operation)
+		}),
+	)}
+
+	apiClients, err := clients.NewClientsWithHttpClient(
 		os.Getenv("GATEWAY_ADDR"),
 		func(ctx context.Context, req *http.Request) error {
 			req.Header.Set("Correlation-ID", log.CorrelationIDFromContext(ctx))
 
 			return nil
 		},
+		traceHttpClient,
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	conn, err := sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
+	traceDB, err := otelsql.Open("postgres", os.Getenv("POSTGRES_URL"),
+		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
+		otelsql.WithDBName("db"))
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close()
+
+	dbConn := sqlx.NewDb(traceDB, "postgres")
+	defer dbConn.Close()
 
 	redisClient := message.NewRedisClient(os.Getenv("REDIS_ADDR"))
 	defer redisClient.Close()
@@ -47,7 +63,7 @@ func main() {
 	paymentsService := api.NewPaymentServiceClient(apiClients)
 
 	err = service.New(
-		conn,
+		dbConn,
 		redisClient,
 		spreadsheetsService,
 		receiptsService,

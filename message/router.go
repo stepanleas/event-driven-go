@@ -11,12 +11,10 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/prometheus/client_golang/prometheus"
+	watermillMiddleware "github.com/ThreeDotsLabs/watermill/message/router/middleware"
 )
 
 func NewWatermillRouter(
-	receiptsService contracts.ReceiptsService,
-	spreadsheetsService contracts.SpreadsheetsAPI,
 	dataLake contracts.DataLake,
 	postgresSubscriber message.Subscriber,
 	redisPublisher message.Publisher,
@@ -29,32 +27,13 @@ func NewWatermillRouter(
 	}
 
 	router.AddMiddleware(
+		watermillMiddleware.Recoverer,
 		middleware.RetryMiddleware(logger).Middleware,
+		middleware.TracingMiddleware,
+		middleware.PrometheusMiddleware,
 		middleware.CorrelationIDMiddleware,
 		middleware.LoggingMiddleware,
 	)
-
-	router.AddMiddleware(func(h message.HandlerFunc) message.HandlerFunc {
-		return func(msg *message.Message) (events []*message.Message, err error) {
-			start := time.Now()
-
-			topic := message.SubscribeTopicFromCtx(msg.Context())
-			handler := message.HandlerNameFromCtx(msg.Context())
-
-			labels := prometheus.Labels{"topic": topic, "handler": handler}
-
-			middleware.MessagesProcessedCounter.With(labels).Inc()
-
-			msgs, err := h(msg)
-			if err != nil {
-				middleware.MessagesProcessingFailedCounter.With(labels).Inc()
-			}
-
-			middleware.MessagesProcessingDuration.With(labels).Observe(time.Since(start).Seconds())
-
-			return msgs, err
-		}
-	})
 
 	router.AddNoPublisherHandler(
 		"events_splitter",

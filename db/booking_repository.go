@@ -83,7 +83,7 @@ func (b BookingRepository) Add(ctx context.Context, booking entities.Booking) er
 
 	outboxPublisher, err := outbox.NewPublisherForDb(ctx, tx)
 	if err != nil {
-		return fmt.Errorf("could not create event bus: %w", err)
+		return fmt.Errorf("could not create outbox publisher: %w", err)
 	}
 
 	err = events.NewEventBus(outboxPublisher).Publish(ctx, entities.BookingMade_v1{

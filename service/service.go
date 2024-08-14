@@ -14,11 +14,10 @@ import (
 	"tickets/message/events"
 	"tickets/message/events/outbox"
 	"tickets/migrations"
-	"time"
+	"tickets/observability"
 
 	_ "github.com/lib/pq"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
@@ -30,24 +29,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var (
-	veryImportantCounter = promauto.NewCounter(prometheus.CounterOpts{
-		// metric will be named tickets_very_important_counter_total
-		Namespace: "tickets",
-		Name:      "very_important_counter_total",
-		Help:      "Total number of very important things processed",
-	})
-)
-
-func recordMetrics() {
-	go func() {
-		for {
-			veryImportantCounter.Inc()
-			time.Sleep(time.Millisecond * 100)
-		}
-	}()
-}
-
 func init() {
 	log.Init(logrus.InfoLevel)
 }
@@ -58,6 +39,7 @@ type Service struct {
 	echoRouter      *echo.Echo
 	dataLake        contracts.DataLake
 	opsReadModel    read_model.OpsBookingReadModel
+	tracerProvider  *trace.TracerProvider
 }
 
 type ReceiptService interface {
@@ -74,33 +56,33 @@ func New(
 	deadNationAPI contracts.DeadNationApi,
 	paymentsService contract.PaymentsService,
 ) Service {
+	tracerProvider := observability.ConfigureTracerProvider()
+
+	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
+
+	redisPublisher := message.NewRedisPublisher(redisClient, watermillLogger)
+	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
+	redisPublisher = observability.TracingPublisherDecorator{Publisher: redisPublisher}
+
+	redisSubscriber := message.NewRedisSubscriber(redisClient, watermillLogger)
+	eventBus := events.NewEventBus(redisPublisher)
+
 	ticketsRepo := db.NewTicketRepository(dbConn)
 	showRepo := db.NewShowRepository(dbConn)
 	bookingRepo := db.NewBookingRepository(dbConn)
 	dataLake := db.NewDataLake(dbConn)
+	opsReadModel := read_model.NewOpsBookingReadModel(dbConn, eventBus)
 
-	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
-
-	recordMetrics()
-
-	redisPublisher := message.NewRedisPublisher(redisClient, watermillLogger)
-	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
-
-	redisSub := message.NewRedisSubscriber(redisClient, watermillLogger)
-
-	postgresSub := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
+	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
 
 	watermillRouter := message.NewWatermillRouter(
-		receiptsService,
-		spreadsheetsService,
 		dataLake,
-		postgresSub,
+		postgresSubscriber,
 		redisPublisher,
-		redisSub,
+		redisSubscriber,
 		watermillLogger,
 	)
 
-	eventBus := events.NewEventBus(redisPublisher)
 	eventProcessor, err := cqrs.NewEventProcessorWithConfig(
 		watermillRouter,
 		events.NewEventProcessorConfig(redisClient, watermillLogger),
@@ -108,8 +90,6 @@ func New(
 	if err != nil {
 		panic(err)
 	}
-
-	opsReadModel := read_model.NewOpsBookingReadModel(dbConn, eventBus)
 
 	events.AddEventProcessorHandlers(
 		eventProcessor,
@@ -150,6 +130,7 @@ func New(
 		echoRouter:      echoRouter,
 		dataLake:        dataLake,
 		opsReadModel:    opsReadModel,
+		tracerProvider:  tracerProvider,
 	}
 }
 
@@ -186,6 +167,11 @@ func (s Service) Run(ctx context.Context) error {
 	errgrp.Go(func() error {
 		<-ctx.Done()
 		return s.echoRouter.Shutdown(context.Background())
+	})
+
+	errgrp.Go(func() error {
+		<-ctx.Done()
+		return s.tracerProvider.Shutdown(context.Background())
 	})
 
 	return errgrp.Wait()

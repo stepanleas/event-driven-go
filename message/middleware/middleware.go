@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func CorrelationIDMiddleware(h message.HandlerFunc) message.HandlerFunc {
+func CorrelationIDMiddleware(next message.HandlerFunc) message.HandlerFunc {
 	return func(msg *message.Message) ([]*message.Message, error) {
 		ctx := msg.Context()
 
@@ -24,19 +24,23 @@ func CorrelationIDMiddleware(h message.HandlerFunc) message.HandlerFunc {
 
 		msg.SetContext(ctx)
 
-		return h(msg)
+		return next(msg)
 	}
 }
 
 func LoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
 	return func(msg *message.Message) ([]*message.Message, error) {
-		logger := log.FromContext(msg.Context()).WithField("message_uuid", msg.UUID)
+		logger := log.FromContext(msg.Context()).WithFields(logrus.Fields{
+			"message_id": msg.UUID,
+			"payload":    string(msg.Payload),
+			"metadata":   msg.Metadata,
+		})
 
 		logger.Info("Handling a message")
 
 		msgs, err := next(msg)
 		if err != nil {
-			logger.WithError(err).Error("Message handling error")
+			logger.WithError(err).Error("Error while handling a message")
 		}
 
 		return msgs, err
