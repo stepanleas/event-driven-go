@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"tickets/db/util"
 	"tickets/entities"
+
 	"time"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
@@ -192,7 +194,7 @@ func (r OpsBookingReadModel) updateBookingReadModel(
 	bookingID string,
 	updateFunc func(ticket entities.OpsBooking) (entities.OpsBooking, error),
 ) error {
-	err := updateInTx(
+	err := util.UpdateInTx(
 		ctx,
 		r.db,
 		sql.LevelRepeatableRead,
@@ -228,7 +230,7 @@ func (r OpsBookingReadModel) updateTicketInBookingReadModel(
 	ticketID string,
 	updateFunc func(ticket entities.OpsTicket) (entities.OpsTicket, error),
 ) (err error) {
-	return updateInTx(
+	return util.UpdateInTx(
 		ctx,
 		r.db,
 		sql.LevelRepeatableRead,

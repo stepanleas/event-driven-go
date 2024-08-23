@@ -1,4 +1,4 @@
-package read_model
+package util
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func updateInTx(
+func UpdateInTx(
 	ctx context.Context,
 	db *sqlx.DB,
 	isolation sql.IsolationLevel,

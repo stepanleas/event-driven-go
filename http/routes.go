@@ -19,11 +19,13 @@ func NewHttpRouter(
 	ticketRepo contracts.TicketRepository,
 	showRepo contracts.ShowRepository,
 	bookingRepo contracts.BookingRepository,
+	vipBundleRepo contracts.VipBundleRepository,
 	opsReadModel read_model.OpsBookingReadModel,
 ) *echo.Echo {
 	ticketCtrl := NewTicketController(eventBus, commandBus, ticketRepo)
 	showCtrl := NewShowController(showRepo)
 	bookingCtrl := NewBookingController(bookingRepo)
+	vipBundleCtrl := NewVipBundleController(vipBundleRepo)
 	opsBookingCtrl := NewOpsBookingController(opsReadModel)
 
 	e := libHttp.NewEcho()
@@ -37,6 +39,8 @@ func NewHttpRouter(
 	e.POST("/tickets-status", ticketCtrl.Status)
 	e.POST("/book-tickets", bookingCtrl.Store)
 	e.PUT("/ticket-refund/:ticket_id", ticketCtrl.Refund)
+
+	e.POST("/book-vip-bundle", vipBundleCtrl.Book)
 
 	e.GET("/shows", showCtrl.FindAll)
 	e.POST("/shows", showCtrl.Store)

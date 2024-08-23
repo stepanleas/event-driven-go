@@ -4,6 +4,7 @@ import (
 	"tickets/db/read_model"
 	"tickets/message/contracts"
 	"tickets/message/event_handlers"
+	"tickets/process_manager"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
@@ -18,6 +19,7 @@ func AddEventProcessorHandlers(
 	filesAPI contracts.FilesAPI,
 	deadNationAPI contracts.DeadNationApi,
 	opsReadModel read_model.OpsBookingReadModel,
+	vipBundlePM *process_manager.VipBundleProcessManager,
 ) {
 	ep.AddHandlers(
 		cqrs.NewEventHandler(
@@ -68,6 +70,35 @@ func AddEventProcessorHandlers(
 		cqrs.NewEventHandler(
 			"ops_read_model.OnTicketRefunded",
 			opsReadModel.OnTicketRefunded,
+		),
+		// process manager
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnVipBundleInitialized",
+			vipBundlePM.OnVipBundleInitialized,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnBookingMade",
+			vipBundlePM.OnBookingMade,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnBookingFailed",
+			vipBundlePM.OnBookingFailed,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnFlightBooked",
+			vipBundlePM.OnFlightBooked,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnFlightBookingFailed",
+			vipBundlePM.OnFlightBookingFailed,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnTaxiBooked",
+			vipBundlePM.OnTaxiBooked,
+		),
+		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnTaxiBookingFailed",
+			vipBundlePM.OnTaxiBookingFailed,
 		),
 	)
 }

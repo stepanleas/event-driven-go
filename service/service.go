@@ -15,6 +15,7 @@ import (
 	"tickets/message/events/outbox"
 	"tickets/migrations"
 	"tickets/observability"
+	"tickets/process_manager"
 
 	_ "github.com/lib/pq"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -91,6 +92,20 @@ func New(
 		panic(err)
 	}
 
+	commandBus := commands.NewCommandBus(redisPublisher)
+	commandProcessor, err := cqrs.NewCommandProcessorWithConfig(
+		watermillRouter,
+		commands.NewCommandProcessorConfig(redisClient, watermillLogger),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	commands.AddCommandProcessorHandlers(commandProcessor, eventBus, bookingRepo, receiptsService, paymentsService)
+
+	vipBundleRepo := db.NewVipBundleRepository(dbConn)
+	vipBundlePM := process_manager.NewVipBundleProcessManager(commandBus, eventBus, vipBundleRepo)
+
 	events.AddEventProcessorHandlers(
 		eventProcessor,
 		eventBus,
@@ -101,18 +116,8 @@ func New(
 		filesAPI,
 		deadNationAPI,
 		opsReadModel,
+		vipBundlePM,
 	)
-
-	commandBus := commands.NewCommandBus(redisPublisher)
-	commandProcessor, err := cqrs.NewCommandProcessorWithConfig(
-		watermillRouter,
-		commands.NewCommandProcessorConfig(redisClient, watermillLogger),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	commands.AddCommandProcessorHandlers(commandProcessor, eventBus, receiptsService, paymentsService)
 
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,
@@ -121,6 +126,7 @@ func New(
 		ticketsRepo,
 		showRepo,
 		bookingRepo,
+		vipBundleRepo,
 		opsReadModel,
 	)
 
