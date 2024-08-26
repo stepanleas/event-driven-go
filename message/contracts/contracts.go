@@ -61,3 +61,8 @@ type FilesAPI interface {
 type DeadNationApi interface {
 	BookInDeadNation(ctx context.Context, booking entities.DeadNationBooking) error
 }
+
+type TransportationService interface {
+	BookFlight(ctx context.Context, request entities.BookFlightTicketRequest) (entities.BookFlightTicketResponse, error)
+	BookTaxi(ctx context.Context, request entities.BookTaxiRequest) (entities.BookTaxiResponse, error)
+}

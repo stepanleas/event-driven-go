@@ -49,6 +49,7 @@ func TestComponent(t *testing.T) {
 			filesAPI,
 			deadNationAPI,
 			paymentsService,
+			nil,
 		)
 		assert.NoError(t, svc.Run(ctx))
 	}()

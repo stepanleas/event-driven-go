@@ -61,6 +61,7 @@ func main() {
 	filesAPI := api.NewFilesApiClient(apiClients)
 	deadNationAPI := api.NewDeadNationClient(apiClients)
 	paymentsService := api.NewPaymentServiceClient(apiClients)
+	transportationService := api.NewTransportationClient(apiClients)
 
 	err = service.New(
 		dbConn,
@@ -70,6 +71,7 @@ func main() {
 		filesAPI,
 		deadNationAPI,
 		paymentsService,
+		transportationService,
 	).Run(ctx)
 	if err != nil {
 		panic(err)

@@ -56,6 +56,7 @@ func New(
 	filesAPI contracts.FilesAPI,
 	deadNationAPI contracts.DeadNationApi,
 	paymentsService contract.PaymentsService,
+	tranportationService contracts.TransportationService,
 ) Service {
 	tracerProvider := observability.ConfigureTracerProvider()
 
@@ -101,7 +102,7 @@ func New(
 		panic(err)
 	}
 
-	commands.AddCommandProcessorHandlers(commandProcessor, eventBus, bookingRepo, receiptsService, paymentsService)
+	commands.AddCommandProcessorHandlers(commandProcessor, eventBus, bookingRepo, tranportationService, receiptsService, paymentsService)
 
 	vipBundleRepo := db.NewVipBundleRepository(dbConn)
 	vipBundlePM := process_manager.NewVipBundleProcessManager(commandBus, eventBus, vipBundleRepo)

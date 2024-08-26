@@ -42,7 +42,7 @@ func (v VipBundleRepository) Add(ctx context.Context, vipBundle entities.VipBund
 		v.db,
 		sql.LevelRepeatableRead,
 		func(ctx context.Context, tx *sqlx.Tx) error {
-			_, err := v.db.ExecContext(ctx, `
+			_, err = v.db.ExecContext(ctx, `
 				INSERT INTO vip_bundles (vip_bundle_id, booking_id, payload)
 				VALUES ($1, $2, $3)
 			`, vipBundle.VipBundleID, vipBundle.BookingID, payload)
@@ -53,7 +53,7 @@ func (v VipBundleRepository) Add(ctx context.Context, vipBundle entities.VipBund
 
 			outboxPublisher, err := outbox.NewPublisherForDb(ctx, tx)
 			if err != nil {
-				return fmt.Errorf("could not create outbox publisher: %w", err)
+				return fmt.Errorf("could not create event bus: %w", err)
 			}
 
 			err = events.NewEventBus(outboxPublisher).Publish(ctx, entities.VipBundleInitialized_v1{
@@ -75,7 +75,7 @@ func (v VipBundleRepository) Get(ctx context.Context, vipBundleID uuid.UUID) (en
 
 func (v VipBundleRepository) vipBundleByID(ctx context.Context, vipBundleID uuid.UUID, db Executor) (entities.VipBundle, error) {
 	var payload []byte
-	err := db.QueryRowContext(ctx, `
+	err := v.db.QueryRowContext(ctx, `
 		SELECT payload FROM vip_bundles WHERE vip_bundle_id = $1
 	`, vipBundleID).Scan(&payload)
 
@@ -115,15 +115,12 @@ func (v VipBundleRepository) getByBookingID(ctx context.Context, bookingID uuid.
 	return vipBundle, nil
 }
 
-func (v VipBundleRepository) UpdateByID(
-	ctx context.Context,
-	bookingID uuid.UUID,
-	updateFn func(vipBundle entities.VipBundle) (entities.VipBundle, error),
-) (entities.VipBundle, error) {
+func (v VipBundleRepository) UpdateByID(ctx context.Context, bookingID uuid.UUID, updateFn func(vipBundle entities.VipBundle) (entities.VipBundle, error)) (entities.VipBundle, error) {
 	var vb entities.VipBundle
 
 	err := util.UpdateInTx(ctx, v.db, sql.LevelSerializable, func(ctx context.Context, tx *sqlx.Tx) error {
-		vb, err := v.vipBundleByID(ctx, bookingID, tx)
+		var err error
+		vb, err = v.vipBundleByID(ctx, bookingID, tx)
 		if err != nil {
 			return err
 		}
@@ -155,15 +152,12 @@ func (v VipBundleRepository) UpdateByID(
 	return vb, nil
 }
 
-func (v VipBundleRepository) UpdateByBookingID(
-	ctx context.Context,
-	bookingID uuid.UUID,
-	updateFn func(vipBundle entities.VipBundle) (entities.VipBundle, error),
-) (entities.VipBundle, error) {
+func (v VipBundleRepository) UpdateByBookingID(ctx context.Context, bookingID uuid.UUID, updateFn func(vipBundle entities.VipBundle) (entities.VipBundle, error)) (entities.VipBundle, error) {
 	var vb entities.VipBundle
 
 	err := util.UpdateInTx(ctx, v.db, sql.LevelSerializable, func(ctx context.Context, tx *sqlx.Tx) error {
-		vb, err := v.getByBookingID(ctx, bookingID, tx)
+		var err error
+		vb, err = v.getByBookingID(ctx, bookingID, tx)
 		if err != nil {
 			return err
 		}
