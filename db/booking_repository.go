@@ -5,13 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http"
 	"tickets/entities"
 	"tickets/message/events"
 	"tickets/message/events/outbox"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/labstack/echo/v4"
 )
 
 type BookingRepository struct {
@@ -28,6 +26,7 @@ func NewBookingRepository(db *sqlx.DB) BookingRepository {
 
 var (
 	ErrBookingAlreadyExists = errors.New("booking already exists")
+	ErrNoPlacesLeft         = errors.New("no places left")
 )
 
 func (b BookingRepository) Add(ctx context.Context, booking entities.Booking) error {
@@ -72,8 +71,7 @@ func (b BookingRepository) Add(ctx context.Context, booking entities.Booking) er
 	}
 
 	if availableSeats-alreadyBookedSeats < booking.NumberOfTickets {
-		// this is usually a bad idea, learn more here: https://threedots.tech/post/introducing-clean-architecture/
-		return echo.NewHTTPError(http.StatusBadRequest, "not enough seats available")
+		return ErrNoPlacesLeft
 	}
 
 	_, err = tx.NamedExecContext(ctx, `

@@ -23,7 +23,7 @@ func AddCommandProcessorHandlers(
 		),
 		cqrs.NewCommandHandler(
 			"BookShowTickets",
-			command_handlers.NewBookShowTicketsCommandHandler(bookingRepo).Handle,
+			command_handlers.NewBookShowTicketsCommandHandler(bookingRepo, eventBus).Handle,
 		),
 		cqrs.NewCommandHandler(
 			"BookFlight",

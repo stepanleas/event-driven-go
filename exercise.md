@@ -1,76 +1,31 @@
-# Book Transportation for the VIP Bundle
+# Failure to Book Show Tickets
 
-The hardest part is done — our process manager works.
-Now we can add the next part of the flow: booking transportation.
-
-We need to book flight tickets and taxis.
-We have prepared API clients for the `transportation` API in `github.com/ThreeDotsLabs/go-event-driven/common/clients`.
-
-Flights can be booked with:
-
-```go
-resp, err := t.clients.Transportation.PutFlightTicketsWithResponse(ctx, transportation.BookFlightTicketRequest{
-	CustomerEmail:  request.CustomerEmail,
-	FlightId:       request.FlightID,
-	PassengerNames: request.PassengerNames,
-	ReferenceId:    request.ReferenceId,
-	IdempotencyKey: request.IdempotencyKey,
-})
-```
-
-Taxis can be booked with:
-
-```go
-resp, err := t.clients.Transportation.PutTaxiBookingWithResponse(ctx, transportation.TaxiBookingRequest{
-	CustomerEmail:      request.CustomerEmail,
-	NumberOfPassengers: request.NumberOfPassengers,
-	PassengerName:      request.PassengerName, // this should be name of the first passenger in Vip Bundle
-	ReferenceId:        request.ReferenceId,
-	IdempotencyKey:     request.IdempotencyKey,
-})
-```
-Use the name of the first passenger in the VIP Bundle as `PassengerName` for taxi booking.
-
-The taxi provider will provide the right number of cars based on the number of passengers (so we don't need to think about that).
-
-If booking was successful, the API will return Status Created (201) and a response body with:
-
-- The taxi booking ID for a taxi
-- Flight ticket IDs for a flight
-
-If your request is  invalid, the API will return Status Bad Request (400) and an error message.
-
-
-Taxis should be booked via the `BookTaxi` command and flights with `BookFlight`.
+Now let's extend our process manager functionality a bit.
+We need to be notified when it's not possible to book show tickets.
 
 ## Exercise
 
 File: `project/main.go`
 
-Add support for booking taxi and flight tickets to our VIP bundle when the `BookFlight` and `BookTaxi` 
-commands are received from our process manager.
+Emit the `BookingFailed_v1` event when `BookShowTickets` can't book tickets because no places are left.
+
+The endpoint should return `201 Created`, even if they were no places left.
+In other words, tickets should be booked asynchronously.
 
 
-<div class="accordion" id="hints-accordion">
+<div class="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-7 mb-10">
+    <div class="d-flex flex-column">
+        <h3 class="mb-5 text-dark">
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lightbulb text-primary" viewBox="0 0 16 16">
+			  <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a1.964 1.964 0 0 0-.453-.618A5.984 5.984 0 0 1 2 6zm6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1z"/>
+			</svg>
+			Tip
+		</h3>
+        <span>
 
-<div class="accordion-item">
-	<h3 class="accordion-header" id="hints-accordion-header-1">
-	<button class="accordion-button fs-4 fw-semibold collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#hints-accordion-body-1" aria-expanded="false" aria-controls="hints-accordion">
-		Hint #1
-	</button>
-	</h3>
-	<div id="hints-accordion-body-1" class="accordion-collapse collapse" aria-labelledby="hints-accordion-header-1" data-bs-parent="#hints-accordion">
-	<div class="accordion-body">
+As alternative, you could return `400 Bad Request`, when they are no places left.
+But in this case, let's do it asynchronously.
 
-Make sure to pick a different idempotency key for each request you make to the transportation API.
-
-Transportation provider will ignore any extra requests that have the same idempotency key, no matter what information is inside them. 
-This means if you use the same key for two different rides or flights, one might not get counted. So, always use a unique key for each request to avoid missing out on any services or losing data.
-
-You can read more about that in [Idempotency Key for issuing receipts](/trainings/go-event-driven/exercise/92ec4eb7-2507-4ad0-850d-28089a587d3e).
-
-</div>
+</span>
 	</div>
 	</div>
-
-</div>
