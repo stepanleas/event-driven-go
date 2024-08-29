@@ -7,6 +7,7 @@ import (
 )
 
 var ErrNoFlightTicketsAvailable = errors.New("no flight tickets available")
+var ErrNoTaxiAvailable = errors.New("no taxi available")
 
 type BookFlightTicketRequest struct {
 	CustomerEmail  string

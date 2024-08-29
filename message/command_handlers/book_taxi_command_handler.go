@@ -2,6 +2,7 @@ package command_handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"tickets/entities"
 	"tickets/message/contracts"
@@ -29,6 +30,18 @@ func (h BookTaxiCommandHandler) Handle(ctx context.Context, command *entities.Bo
 		ReferenceId:        command.ReferenceID,
 		IdempotencyKey:     command.IdempotencyKey,
 	})
+	if errors.Is(err, entities.ErrNoTaxiAvailable) {
+		err = h.eventBus.Publish(ctx, entities.TaxiBookingFailed_v1{
+			Header:        entities.NewEventHeader(),
+			FailureReason: err.Error(),
+			ReferenceID:   command.ReferenceID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to publish TaxiBookingFailed_v1 event: %w", err)
+		}
+
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to book taxi: %w", err)
 	}
