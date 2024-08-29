@@ -43,6 +43,8 @@ func (t TransportationClient) BookFlight(
 				return i
 			}),
 		}, nil
+	case http.StatusConflict:
+		return entities.BookFlightTicketResponse{}, entities.ErrNoFlightTicketsAvailable
 	default:
 		return entities.BookFlightTicketResponse{}, fmt.Errorf(
 			"unexpected status code for PUT transportation-api/transportation/flight-tickets: %d",

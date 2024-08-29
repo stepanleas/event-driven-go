@@ -2,6 +2,7 @@ package command_handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"tickets/entities"
 	"tickets/message/contracts"
@@ -29,8 +30,21 @@ func (h BookFlightCommandHandler) Handle(ctx context.Context, command *entities.
 		ReferenceId:    command.ReferenceID,
 		IdempotencyKey: command.IdempotencyKey,
 	})
+	if errors.Is(err, entities.ErrNoFlightTicketsAvailable) {
+		err = h.eventBus.Publish(ctx, entities.FlightBookingFailed_v1{
+			Header:        entities.NewEventHeader(),
+			FailureReason: err.Error(),
+			FlightID:      command.FlightID,
+			ReferenceID:   command.ReferenceID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to publish FlightBookingFailed_v1 event: %w", err)
+		}
+
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("failed to book flight: %w", err)
+		return fmt.Errorf("failed to void receipt: %w", err)
 	}
 
 	err = h.eventBus.Publish(ctx, entities.FlightBooked_v1{

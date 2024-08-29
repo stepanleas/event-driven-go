@@ -85,6 +85,10 @@ func AddEventProcessorHandlers(
 			vipBundlePM.OnBookingFailed,
 		),
 		cqrs.NewEventHandler(
+			"vip_bundle_process_manager.OnTicketBookingConfirmed",
+			vipBundlePM.OnTicketBookingConfirmed,
+		),
+		cqrs.NewEventHandler(
 			"vip_bundle_process_manager.OnFlightBooked",
 			vipBundlePM.OnFlightBooked,
 		),

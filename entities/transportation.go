@@ -1,6 +1,12 @@
 package entities
 
-import "github.com/google/uuid"
+import (
+	"errors"
+
+	"github.com/google/uuid"
+)
+
+var ErrNoFlightTicketsAvailable = errors.New("no flight tickets available")
 
 type BookFlightTicketRequest struct {
 	CustomerEmail  string
