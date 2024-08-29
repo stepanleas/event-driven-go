@@ -77,3 +77,25 @@ func (t TransportationClient) BookTaxi(ctx context.Context, request entities.Boo
 		)
 	}
 }
+
+func (t TransportationClient) CancelFlightTickets(ctx context.Context, request entities.CancelFlightTicketsRequest) error {
+	for _, ticketID := range request.TicketIds {
+		resp, err := t.clients.Transportation.DeleteFlightTicketsTicketIdWithResponse(ctx, ticketID)
+		if err != nil {
+			return fmt.Errorf("failed to cancel flight tickets: %w", err)
+		}
+
+		switch resp.StatusCode() {
+		case http.StatusNoContent:
+			continue
+		default:
+			return fmt.Errorf(
+				"unexpected status code for DELETE transportation-api/transportation/flight-tickets for ticket %s: %d",
+				ticketID,
+				resp.StatusCode(),
+			)
+		}
+	}
+
+	return nil
+}

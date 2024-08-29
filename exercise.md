@@ -1,10 +1,8 @@
-# Rollback of Show Tickets
+# Failed to Book Return Flight Ticket
 
-It's time to take advantage of the main purpose for which we used the process manager: handling rollbacks.
-
-Let's start with refunding tickets when we fail to book an inbound flight ticket.
-In this exercise, our process will fail when we try to book an inbound flight ticket.
-The API will return a 409 Conflict status code.
+In this exercise, it won't be possible to book **return flight** tickets (previously, it was inbound flight tickets).
+`FlightBookingFailed_v1` should be already properly emitted (you did this in the previous exercise).
+We will also refund tickets, but we are missing the command handler for handling the inbound flight ticket, which was already booked.
 
 ```mermaid
 stateDiagram-v2
@@ -33,14 +31,21 @@ stateDiagram-v2
     FinalizedState --> [*] : Completed Process
 ```
 
-We should handle this error and emit `FlightBookingFailed_v1`.
-
-In [12-cqrs-commands/03-project-handle-command](/trainings/go-event-driven/exercise/0a46c758-54e5-4be2-9349-3b32529eb9c6),
-we already implemented the `RefundTicket` command handler.
-If it's still working, it should work out of the box (this command should be emitted by our process manager).
-
 ## Exercise
 
 File: `project/main.go`
 
-Emit `FlightBookingFailed_v1` when we fail to book an inbound flight ticket.
+Implement the `CancelFlightTickets` command handler.
+
+It should call `DeleteFlightTicketsTicketIdWithResponse` for **each** ticket ID.
+
+```go
+resp, err := t.clients.Transportation.DeleteFlightTicketsTicketIdWithResponse(ctx, ticketID)
+if err != nil {
+	return fmt.Errorf("failed to cancel flight tickets: %w", err)
+}
+```
+
+`CancelFlightTickets` should already be published for inbound tickets by your process manager.
+**You should keep the original functionality, and show tickets should be canceled as well.**
+

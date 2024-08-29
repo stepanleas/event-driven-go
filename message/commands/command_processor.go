@@ -33,5 +33,9 @@ func AddCommandProcessorHandlers(
 			"BookTaxi",
 			command_handlers.NewBookTaxiCommandHandler(transportationService, eventBus).Handle,
 		),
+		cqrs.NewCommandHandler(
+			"CancelFlightTickets",
+			command_handlers.NewCancelFlightTicketsCommandHandler(transportationService).Handle,
+		),
 	)
 }

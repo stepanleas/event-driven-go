@@ -20,6 +20,10 @@ type BookFlightTicketResponse struct {
 	TicketIds []uuid.UUID `json:"ticket_ids"`
 }
 
+type CancelFlightTicketsRequest struct {
+	TicketIds []uuid.UUID `json:"ticket_ids"`
+}
+
 type BookTaxiRequest struct {
 	CustomerEmail      string
 	NumberOfPassengers int
